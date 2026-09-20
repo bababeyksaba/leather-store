@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'products',
 ]
 
 MIDDLEWARE = [
@@ -77,7 +78,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'leather_store',
         'USER':'postgres',
-        'PASSWORD':'12345',
+        'PASSWORD':'123456',
         'HOST':'localhost',
         'PORT':'5432'
     }
