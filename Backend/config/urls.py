@@ -6,15 +6,13 @@ urlpatterns = [
 
     path(
         "admin/",
-        admin.site.urls
+        admin.site.urls,
     ),
 
 
     path(
-        "api/products/",
-        include(
-            "products.urls"
-        )
+        "api/",
+        include("products.urls"),
     ),
 
 ]

@@ -1,11 +1,33 @@
 from rest_framework import serializers
 
-from .models import Category, Product
+from .models import (
+    Category,
+    Product,
+    ProductImage,
+)
+
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+
+        model = ProductImage
+
+        fields = (
+            "id",
+            "image",
+            "alt_text",
+            "is_primary",
+        )
+
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
+
         model = Category
 
         fields = (
@@ -15,9 +37,14 @@ class CategorySerializer(serializers.ModelSerializer):
         )
 
 
+
+
 class ProductListSerializer(serializers.ModelSerializer):
 
-    category = CategorySerializer(read_only=True)
+    category = CategorySerializer(
+        read_only=True
+    )
+
 
     is_available = serializers.BooleanField(
         read_only=True
@@ -25,6 +52,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
     class Meta:
+
         model = Product
 
         fields = (
@@ -43,6 +71,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
 
+
 class ProductDetailSerializer(serializers.ModelSerializer):
 
     category_id = serializers.IntegerField(
@@ -50,15 +79,24 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+
     category_name = serializers.CharField(
         source="category.name",
         read_only=True
     )
 
+
     category_slug = serializers.CharField(
         source="category.slug",
         read_only=True
     )
+
+
+    images = ProductImageSerializer(
+        many=True,
+        read_only=True
+    )
+
 
     is_available = serializers.BooleanField(
         read_only=True
@@ -66,6 +104,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 
     class Meta:
+
         model = Product
 
         fields = (
@@ -82,6 +121,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "price",
             "stock",
             "image",
+            "images",
             "is_available",
             "is_active",
             "created_at",
@@ -94,6 +134,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class CategoryProductSerializer(serializers.ModelSerializer):
 
     class Meta:
+
         model = Product
 
         fields = (

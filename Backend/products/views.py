@@ -5,21 +5,17 @@ from rest_framework.generics import (
     RetrieveAPIView,
 )
 
-
 from .models import (
     Product,
     Category,
 )
-
 
 from .serializers import (
     ProductListSerializer,
     ProductDetailSerializer,
     CategorySerializer,
     CategoryProductSerializer,
-    
 )
-
 
 
 # ==================================
@@ -43,36 +39,23 @@ class ProductListAPIView(ListAPIView):
             .select_related(
                 "category"
             )
-            .order_by(
-                "-created_at"
+            .prefetch_related(
+                "images"
             )
         )
 
 
-        category_slug = (
-            self.request
-            .query_params
-            .get("category")
+        # -------------------------
+        # جستجو
+        # -------------------------
+
+        search = self.request.query_params.get(
+            "search"
         )
-
-
-        search = (
-            self.request
-            .query_params
-            .get("search")
-        )
-
-
-        if category_slug:
-
-            queryset = queryset.filter(
-                category__slug=category_slug
-            )
-
 
         if search:
 
-            search = search.strip()[:100]
+            search = search.strip()
 
             queryset = queryset.filter(
                 Q(name__icontains=search)
@@ -82,6 +65,125 @@ class ProductListAPIView(ListAPIView):
                 Q(material__icontains=search)
                 |
                 Q(color__icontains=search)
+                |
+                Q(category__name__icontains=search)
+            )
+
+
+        # -------------------------
+        # فیلتر دسته بندی
+        # -------------------------
+
+        category = self.request.query_params.get(
+            "category"
+        )
+
+        if category:
+
+            queryset = queryset.filter(
+                category__slug=category
+            )
+
+
+        # -------------------------
+        # فیلتر جنس
+        # -------------------------
+
+        material = self.request.query_params.get(
+            "material"
+        )
+
+        if material:
+
+            queryset = queryset.filter(
+                material__icontains=material
+            )
+
+
+        # -------------------------
+        # فیلتر رنگ
+        # -------------------------
+
+        color = self.request.query_params.get(
+            "color"
+        )
+
+        if color:
+
+            queryset = queryset.filter(
+                color__icontains=color
+            )
+
+
+        # -------------------------
+        # حداقل قیمت
+        # -------------------------
+
+        min_price = self.request.query_params.get(
+            "min_price"
+        )
+
+        if min_price:
+
+            queryset = queryset.filter(
+                price__gte=min_price
+            )
+
+
+        # -------------------------
+        # حداکثر قیمت
+        # -------------------------
+
+        max_price = self.request.query_params.get(
+            "max_price"
+        )
+
+        if max_price:
+
+            queryset = queryset.filter(
+                price__lte=max_price
+            )
+
+
+        # -------------------------
+        # فقط موجودها
+        # -------------------------
+
+        available = self.request.query_params.get(
+            "available"
+        )
+
+        if available == "true":
+
+            queryset = queryset.filter(
+                stock__gt=0
+            )
+
+
+        # -------------------------
+        # مرتب سازی
+        # -------------------------
+
+        ordering = self.request.query_params.get(
+            "ordering"
+        )
+
+
+        if ordering in [
+            "price",
+            "-price",
+            "created_at",
+            "-created_at",
+        ]:
+
+            queryset = queryset.order_by(
+                ordering
+            )
+
+        else:
+
+            queryset = queryset.order_by(
+                "-created_at"
             )
 
 
@@ -89,10 +191,9 @@ class ProductListAPIView(ListAPIView):
 
 
 
-
 # ==================================
 # جزئیات محصول با ID
-# GET /api/products/id/1/
+# GET /api/products/id/3/
 # ==================================
 
 class ProductDetailByIdAPIView(RetrieveAPIView):
@@ -104,7 +205,6 @@ class ProductDetailByIdAPIView(RetrieveAPIView):
     lookup_url_kwarg = "product_id"
 
 
-
     def get_queryset(self):
 
         return (
@@ -116,15 +216,16 @@ class ProductDetailByIdAPIView(RetrieveAPIView):
             .select_related(
                 "category"
             )
+            .prefetch_related(
+                "images"
+            )
         )
-
-
 
 
 
 # ==================================
 # جزئیات محصول با Slug
-# GET /api/products/name/
+# GET /api/products/کیف-مجلسی/
 # ==================================
 
 class ProductDetailBySlugAPIView(RetrieveAPIView):
@@ -136,7 +237,6 @@ class ProductDetailBySlugAPIView(RetrieveAPIView):
     lookup_url_kwarg = "product_slug"
 
 
-
     def get_queryset(self):
 
         return (
@@ -148,9 +248,10 @@ class ProductDetailBySlugAPIView(RetrieveAPIView):
             .select_related(
                 "category"
             )
+            .prefetch_related(
+                "images"
+            )
         )
-
-
 
 
 
@@ -177,6 +278,12 @@ class CategoryListAPIView(ListAPIView):
         )
 
 
+
+# ==================================
+# محصولات یک دسته بندی
+# GET /api/categories/کیف-چرمی/products/
+# ==================================
+
 class CategoryProductsAPIView(ListAPIView):
 
     serializer_class = CategoryProductSerializer
@@ -188,15 +295,19 @@ class CategoryProductsAPIView(ListAPIView):
             "category_slug"
         )
 
+
         return (
             Product.objects
             .filter(
+                category__slug=category_slug,
                 is_active=True,
                 category__is_active=True,
-                category__slug=category_slug,
             )
             .select_related(
                 "category"
+            )
+            .prefetch_related(
+                "images"
             )
             .order_by(
                 "-created_at"
