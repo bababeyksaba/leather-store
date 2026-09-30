@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 
 
+
 urlpatterns = [
 
     path(
@@ -14,5 +15,6 @@ urlpatterns = [
         "api/",
         include("products.urls"),
     ),
+    path("api/", include("carts.urls")),
 
 ]

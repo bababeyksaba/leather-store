@@ -1,0 +1,14 @@
+"use client";
+import {useEffect,useState} from "react";
+import {api, money, imageUrl} from "../lib/api";
+import {useCart} from "../components/cart-context";
+export default function Products() {
+ const [products,setProducts]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[search,setSearch]=useState(""),[query,setQuery]=useState(""),[page,setPage]=useState(1),[hasNext,setHasNext]=useState(false),[notice,setNotice]=useState("");
+ const {add,busy}=useCart();
+ useEffect(()=>{let active=true;setLoading(true);setError("");api(`products/?search=${encodeURIComponent(query)}&page=${page}`).then(data=>{if(active){setProducts(Array.isArray(data)?data:data.results ?? []);setHasNext(Boolean(data.next));}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return ()=>{active=false;};},[query,page]);
+ return <><section className="hero"><p className="eyebrow">فروشگاه محصولات چرمی</p><h1>چرم، همراهِ روزهای شما</h1><p>محصول مورد علاقه‌تان را انتخاب کنید و به سبد خرید اضافه کنید.</p></section><form className="search" onSubmit={e=>{e.preventDefault();setPage(1);setQuery(search.trim());}}><input aria-label="جستجوی محصول" placeholder="نام، جنس یا رنگ محصول…" value={search} onChange={e=>setSearch(e.target.value)}/><button>جستجو</button></form><div aria-live="polite">{notice&&<p className="success">{notice}</p>}{error&&<p className="error">{error}</p>}</div>{loading?<p>در حال دریافت محصولات…</p>:<><div className="grid">{products.map(product=><Product key={product.id} product={product} busy={busy} onAdd={async q=>{setNotice("");try{await add(product.id,q);setNotice(`${product.name} به سبد خرید اضافه شد.`);}catch(e){setNotice("");setError(e.message);}}}/>)}</div>{!products.length&&!error&&<p className="empty">محصولی پیدا نشد. محصولات پنل ادمین و وضعیت فعال آن‌ها را بررسی کنید.</p>}<div className="pagination"><button disabled={page===1} onClick={()=>setPage(p=>p-1)}>صفحهٔ قبل</button><span>{page}</span><button disabled={!hasNext} onClick={()=>setPage(p=>p+1)}>صفحهٔ بعد</button></div></>}</>;
+}
+function Product({product,busy,onAdd}) {
+ const [quantity,setQuantity]=useState(1);const available=product.stock>0;const image=imageUrl(product.image);
+ return <article className="product"><div className="photo">{image?<img src={image} alt={product.name}/>:<span>تصویر محصول</span>}</div><div className="product-body"><small>{product.category?.name || product.material}</small><h2>{product.name}</h2><p>{money(product.price)} <small>واحد قیمت فروشگاه</small></p><div className="actions"><input type="number" aria-label={`تعداد ${product.name}`} min="1" max={product.stock} value={quantity} onChange={e=>setQuantity(e.target.value)}/><button disabled={busy||!available||!Number.isInteger(Number(quantity))||Number(quantity)<1||Number(quantity)>product.stock} onClick={()=>onAdd(Number(quantity))}>{available?"افزودن به سبد":"ناموجود"}</button></div></div></article>;
+}

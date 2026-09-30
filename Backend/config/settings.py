@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'products',
     'rest_framework',
+    "carts.apps.CartsConfig",
 ]
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": (
@@ -140,3 +141,5 @@ MAILERS = {
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"

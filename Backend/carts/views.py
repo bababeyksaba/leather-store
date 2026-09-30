@@ -1,64 +1,54 @@
-from decimal import Decimal
-
-from django.shortcuts import get_object_or_404
-from rest_framework import serializers, status
+from django.middleware.csrf import get_token
+from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from products.models import Product
-
-CART_SESSION_KEY = "cart"
-
-class CartItemInSerializer(serializers.Serializer):
-    quantity = serializers.IntegerField(min_value=1)
-
-
-def get_cart(request):
-    return request.session.get(CART_SESSION_KEY, {})  
+from .authentication import CartSessionAuthentication
+from .serializers import CartItemInputSerializer
+from .services import (
+    add_item,
+    cart_summary,
+    soft_delete_item,
+)
 
 
-def save_cart(request,cart):
-    request.session[CART_SESSION_KEY] = cart
-    request.session.modified = True
-
-def get_available_product(product_id):
-    return get_object_or_404(
-        Product.objects.select_related("category"),
-        id=product_id,
-        is_active=True,
-        category__is_active=True,
-    )
+class CartBaseAPIView(APIView):
+    authentication_classes = [CartSessionAuthentication]
+    permission_classes = [AllowAny]
 
 
-class CartAPIView(APIView):
+class CartAPIView(CartBaseAPIView):
     def get(self, request):
-        cart = get_cart(request)
+        result = cart_summary(request)
+        result["csrf_token"] = get_token(request)
 
-        products = Product.objects.filter(
-            id__in=cart.keys(),
-            is_active=True,
-            category__is_active=True,
+        return Response(result)
+
+
+class CartItemCreateAPIView(CartBaseAPIView):
+    def post(self, request, product_id):
+        serializer = CartItemInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = add_item(
+            request,
+            product_id,
+            serializer.validated_data["quantity"],
         )
 
-        items = []
-        total_price = Decimal("0")
+        result["detail"] = "محصول به سبد خرید اضافه شد."
 
-        for product in products:
-            quantity = cart[str(product.id)]
-            item_total = product.price * quantity
-            total_price += item_total
+        return Response(
+            result,
+            status=status.HTTP_201_CREATED,
+        )
 
-            items.append({
-                "product_id": product.id,
-                "name": product.name,
-                "slug": product.slug,
-                "quantity": quantity,
-                "unit_price": str(product.price),
-                "item_total": str(item_total),
-                "stock": product.stock,
-            })
 
-        return Response({
-            "items": items,
-            "total_price": str(total_price),
-        })
+class CartItemDeleteAPIView(CartBaseAPIView):
+    def delete(self, request, product_id):
+        soft_delete_item(request, product_id)
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
