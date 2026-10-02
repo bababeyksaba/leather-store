@@ -65,6 +65,29 @@ def get_active_product(product_id):
         pk=product_id,
     )
 
+def update_item(request, product_id, quantity):
+    cart = get_cart(request)
+    key = str(product_id)
+
+    item = cart.get(key)
+
+    if not item or item["is_deleted"]:
+        raise NotFound("این محصول در سبد خرید نیست.")
+
+    product = get_active_product(product_id)
+
+    if quantity > product.stock:
+        raise ValidationError({
+            "quantity": "تعداد درخواستی از موجودی محصول بیشتر است."
+        })
+
+    item["quantity"] = quantity
+    save_cart(request, cart)
+
+    return {
+        "product_id": product.pk,
+        "quantity": quantity,
+    }
 
 def add_item(request, product_id, quantity):
     product = get_active_product(product_id)

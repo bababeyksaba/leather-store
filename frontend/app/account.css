@@ -1,0 +1,184 @@
+.account-page {
+  max-width: 960px;
+  margin: 32px auto;
+}
+
+.login-box {
+  max-width: 440px;
+  margin: 60px auto;
+  padding: 28px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+}
+
+.account-panel {
+  padding: 24px;
+  margin: 20px 0;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: white;
+}
+
+.account-heading,
+.popup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.account-form {
+  display: grid;
+  gap: 18px;
+}
+
+.account-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.account-form input,
+.account-form select,
+.account-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.account-form input[readonly] {
+  background: #f4f4f4;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.account-form button,
+.account-page button,
+.checkout-button {
+  padding: 12px 20px;
+  border: 1px solid #111;
+  border-radius: 6px;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+}
+
+.account-form .plain-button,
+.account-page .plain-button,
+.popup-heading .plain-button {
+  background: white;
+  color: #111;
+}
+
+.account-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.account-tabs button {
+  background: white;
+  color: #111;
+}
+
+.account-tabs button.active {
+  background: #111;
+  color: #fff;
+}
+
+.account-note {
+  padding: 14px;
+  background: #f4f4f4;
+  border-right: 3px solid #111;
+  line-height: 1.9;
+}
+
+.address-card {
+  display: block;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.address-card input[type="radio"] {
+  margin-left: 10px;
+}
+
+.account-dialog {
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  overflow: auto;
+  border: 1px solid #ccc;
+  border-radius: 14px;
+  padding: 24px;
+  box-sizing: border-box;
+  color: #111;
+  background: #fff;
+}
+
+.account-dialog::backdrop {
+  background: #0008;
+}
+
+.popup-heading {
+  margin-bottom: 20px;
+}
+
+.popup-heading h2 {
+  margin: 0;
+}
+
+.popup-heading button {
+  font-size: 24px;
+  border: 0;
+  cursor: pointer;
+}
+
+.account-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkout-button {
+  width: 100%;
+  margin: 18px 0;
+}
+
+.account-page button:disabled,
+.account-form button:disabled,
+.checkout-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-panel {
+    padding: 16px;
+  }
+
+  .login-box {
+    margin: 24px auto;
+    padding: 20px;
+  }
+
+  .account-tabs button {
+    flex: 1;
+    white-space: nowrap;
+  }
+}

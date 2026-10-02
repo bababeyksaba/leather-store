@@ -1,4 +1,5 @@
 from django.middleware.csrf import get_token
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ from .services import (
     add_item,
     cart_summary,
     soft_delete_item,
+    update_item,
 )
 
 
@@ -19,6 +21,8 @@ class CartBaseAPIView(APIView):
 
 
 class CartAPIView(CartBaseAPIView):
+    """نمایش محصولات سبد و مجموع قیمت."""
+
     def get(self, request):
         result = cart_summary(request)
         result["csrf_token"] = get_token(request)
@@ -27,6 +31,8 @@ class CartAPIView(CartBaseAPIView):
 
 
 class CartItemCreateAPIView(CartBaseAPIView):
+    """افزودن محصول و تغییر تعداد آن."""
+
     def post(self, request, product_id):
         serializer = CartItemInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -44,8 +50,27 @@ class CartItemCreateAPIView(CartBaseAPIView):
             status=status.HTTP_201_CREATED,
         )
 
+    def patch(self, request, product_id):
+        serializer = CartItemInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = update_item(
+            request,
+            product_id,
+            serializer.validated_data["quantity"],
+        )
+
+        result["detail"] = "تعداد محصول تغییر کرد."
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
+
 
 class CartItemDeleteAPIView(CartBaseAPIView):
+    """حذف نرم محصول از سبد."""
+
     def delete(self, request, product_id):
         soft_delete_item(request, product_id)
 
