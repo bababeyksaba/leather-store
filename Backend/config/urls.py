@@ -7,6 +7,7 @@ from products.views import MenuCategoryAPIView
 
 
 urlpatterns = [
+    path("api/", include("store.urls")),
     path("admin/", admin.site.urls),
 
     path("api/", include("users.urls")),

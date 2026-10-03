@@ -21,6 +21,12 @@ export default function CheckoutButton({ disabled = false }) {
       // رزروهای منقضی ابتدا آزاد می‌شوند.
       await api("shipping-methods/");
 
+      const currentSession = await refreshAuth();
+      if (currentSession.authenticated && currentSession.profile?.is_complete) {
+        const orders = await api("orders/");
+        const pending = orders.find(o => o.status === "pending" && new Date(o.expires_at) > new Date());
+        if (pending) { router.push(`/payment/${pending.number}`); return; }
+      }
       const cart = await api("cart/");
 
       const invalidCart =

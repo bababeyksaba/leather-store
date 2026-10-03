@@ -136,8 +136,8 @@ export default function TestPaymentPage({ params }) {
           <OrderFulfillment order={order} />
 
           {order.items.map((item) => (
-            <p key={item.product_id}>
-              {item.name} · {money(item.quantity)} عدد ·
+            <p key={item.id || item.cart_key}>
+              {item.name} {[item.color, item.size].filter(Boolean).join(" / ")} · {money(item.quantity)} عدد ·
               {" "}
               {money(item.item_total)}
             </p>
@@ -200,3 +200,4 @@ export default function TestPaymentPage({ params }) {
     </section>
   );
 }
+

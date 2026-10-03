@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { accountMutation } from "../lib/api";
+import { api, accountMutation } from "../lib/api";
 import Popup from "./popup";
 
 export default function AddressForm({
@@ -11,6 +11,7 @@ export default function AddressForm({
   onSaved,
 }) {
   const [form, setForm] = useState({
+    is_default: address.is_default || false,
     title: address.title || "",
     province: address.province || "",
     city: address.city || "",
@@ -22,10 +23,13 @@ export default function AddressForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [locations, setLocations] = useState([]);
+  useEffect(() => { api("locations/").then(setLocations).catch(e => setError(e.message)); }, []);
+  const cities = locations.find(p => p.name === form.province)?.cities || [];
   function change(event) {
     setForm((value) => ({
       ...value,
-      [event.target.name]: event.target.value,
+      [event.target.name]: event.target.type === "checkbox" ? event.target.checked : event.target.value,
     }));
   }
 
@@ -79,30 +83,10 @@ export default function AddressForm({
         </label>
 
         <div className="form-grid">
-          <label>
-            استان
-            <input
-              name="province"
-              value={form.province}
-              onChange={change}
-              maxLength={100}
-              required
-              disabled={busy}
-            />
-          </label>
-
-          <label>
-            شهر
-            <input
-              name="city"
-              value={form.city}
-              onChange={change}
-              maxLength={100}
-              required
-              disabled={busy}
-            />
-          </label>
+          <label>استان<select value={form.province} required disabled={busy || !locations.length} onChange={e => setForm(v => ({ ...v, province: e.target.value, city: "" }))}><option value="">انتخاب استان</option>{locations.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+          <label>شهر<select name="city" value={form.city} required disabled={busy || !form.province} onChange={change}><option value="">انتخاب شهر</option>{cities.map(city => <option key={city} value={city}>{city}</option>)}</select></label>
         </div>
+        <label className="checkbox-label"><input type="checkbox" name="is_default" checked={form.is_default} onChange={change} disabled={busy} />آدرس پیش‌فرض من</label>
 
         <label>
           نشانی کامل

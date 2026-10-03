@@ -7,7 +7,10 @@ from .views import (
 )
 
 
+from .views import CartVariantAPIView
+
 urlpatterns = [
+    path("cart/variants/<int:variant_id>/", CartVariantAPIView.as_view()),
     path(
         "cart/",
         CartAPIView.as_view(),

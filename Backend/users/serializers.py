@@ -3,7 +3,8 @@ import re
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import CustomerProfile, Address
+from .models import CustomerProfile, Address, Province, City
+from django.db import transaction
 
 
 def normalize_digits(value):
@@ -106,6 +107,7 @@ class AddressSerializer(serializers.ModelSerializer):
             "address_line",
             "landline",
             "postal_code",
+            "is_default",
         ]
 
         read_only_fields = ["id"]
@@ -130,3 +132,23 @@ class AddressSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+    def validate(self, attrs):
+        province = attrs.get("province", getattr(self.instance, "province", ""))
+        city = attrs.get("city", getattr(self.instance, "city", ""))
+        if not City.objects.filter(province__name=province, name=city).exists():
+            raise serializers.ValidationError({"city": "شهر انتخاب‌شده متعلق به این استان نیست."})
+        return attrs
+
+    def save(self, **kwargs):
+        with transaction.atomic():
+            profile = kwargs.get("profile") or self.instance.profile
+            CustomerProfile.objects.select_for_update().get(pk=profile.pk)
+            query = Address.objects.filter(profile=profile)
+            if self.instance:
+                query = query.exclude(pk=self.instance.pk)
+            make_default = self.validated_data.get("is_default", getattr(self.instance, "is_default", False)) or not query.filter(is_default=True).exists()
+            if make_default:
+                query.filter(is_default=True).update(is_default=False)
+            return super().save(is_default=make_default, **kwargs)
+

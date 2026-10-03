@@ -1,54 +1,44 @@
 from decimal import Decimal
-
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
-
-from products.models import Product
-
+from products.models import ProductVariant
+from products.views import get_visible_category_ids
 
 CART_SESSION_KEY = "cart"
 MAX_CART_ITEMS = 100
 
 
-def get_cart(request):
-    """Read both the old {id: quantity} and the new soft-delete format."""
-    stored_cart = request.session.get(CART_SESSION_KEY, {})
-
-    if not isinstance(stored_cart, dict):
+def normalize_cart(raw, strict=False):
+    if not isinstance(raw, dict):
+        if strict: raise ValidationError("سبد خرید معتبر نیست.")
         return {}
-
-    cart = {}
-
-    for product_id, value in stored_cart.items():
-        key = str(product_id)
-
-        if not key.isascii() or not key.isdecimal() or int(key) < 1:
+    legacy = {int(str(k)) for k in raw if str(k).isascii() and str(k).isdigit() and int(str(k)) > 0}
+    defaults = dict(ProductVariant.objects.filter(product_id__in=legacy, is_default=True).values_list("product_id", "id"))
+    result = {}
+    for original, value in raw.items():
+        key = str(original)
+        if isinstance(value, dict) and value.get("is_deleted") is True:
             continue
-
-        key = str(int(key))
-
-        if type(value) is int:
-            value = {
-                "quantity": value,
-                "is_deleted": False,
-            }
-
-        if not isinstance(value, dict):
+        quantity = value.get("quantity") if isinstance(value, dict) else value
+        if key.isascii() and key.isdecimal() and int(key) > 0:
+            variant_id = defaults.get(int(key))
+            key = f"v:{variant_id}" if variant_id else ""
+        valid_key = key.startswith("v:") and key[2:].isascii() and key[2:].isdecimal() and int(key[2:]) > 0
+        if not valid_key or type(quantity) is not int or not 1 <= quantity <= 10000:
+            if strict: raise ValidationError("شناسه یا تعداد یکی از اقلام سبد معتبر نیست؛ سبد را بازبینی کنید.")
             continue
+        key = f"v:{int(key[2:])}"
+        quantity += result.get(key, {}).get("quantity", 0)
+        if quantity > 10000:
+            if strict: raise ValidationError("تعداد محصول بیش از حد مجاز است.")
+            quantity = 10000
+        result[key] = {"quantity": quantity, "is_deleted": False, "deleted_at": None}
+    return result
 
-        quantity = value.get("quantity")
 
-        if type(quantity) is not int or not 1 <= quantity <= 10000:
-            continue
-
-        cart[key] = {
-            "quantity": quantity,
-            "is_deleted": value.get("is_deleted") is True,
-            "deleted_at": value.get("deleted_at"),
-        }
-
-    return cart
+def get_cart(request):
+    return normalize_cart(request.session.get(CART_SESSION_KEY, {}))
 
 
 def save_cart(request, cart):
@@ -56,161 +46,77 @@ def save_cart(request, cart):
     request.session.modified = True
 
 
-def get_active_product(product_id):
-    return get_object_or_404(
-        Product.objects.filter(
-            is_active=True,
-            category__is_active=True,
-        ),
-        pk=product_id,
-    )
+def active_variant(variant_id):
+    return get_object_or_404(ProductVariant.objects.select_related("product").filter(
+        is_active=True, product__is_active=True, product__category_id__in=get_visible_category_ids()), pk=variant_id)
 
-def update_item(request, product_id, quantity):
+
+def legacy_variant(product_id):
+    variants = list(ProductVariant.objects.filter(product_id=product_id, is_active=True).values_list("id", flat=True)[:2])
+    if len(variants) != 1:
+        raise ValidationError("ابتدا رنگ و سایز محصول را انتخاب کنید.")
+    return variants[0]
+
+
+def mutate_variant(request, variant_id, quantity, replace=False):
+    variant = active_variant(variant_id)
     cart = get_cart(request)
-    key = str(product_id)
-
-    item = cart.get(key)
-
-    if not item or item["is_deleted"]:
+    key = f"v:{variant.id}"
+    previous = cart.get(key)
+    if replace and not previous:
         raise NotFound("این محصول در سبد خرید نیست.")
-
-    product = get_active_product(product_id)
-
-    if quantity > product.stock:
-        raise ValidationError({
-            "quantity": "تعداد درخواستی از موجودی محصول بیشتر است."
-        })
-
-    item["quantity"] = quantity
+    total = quantity if replace else quantity + (previous or {}).get("quantity", 0)
+    if total > min(variant.stock, 10000):
+        raise ValidationError({"quantity": "تعداد درخواستی از موجودی این رنگ و سایز بیشتر است."})
+    if not previous and len(cart) >= MAX_CART_ITEMS:
+        raise ValidationError("ظرفیت سبد خرید تکمیل شده است.")
+    cart[key] = {"quantity": total, "is_deleted": False, "deleted_at": None}
     save_cart(request, cart)
+    return {"product_id": variant.product_id, "variant_id": variant.id, "cart_key": key, "quantity": total}
 
-    return {
-        "product_id": product.pk,
-        "quantity": quantity,
-    }
 
 def add_item(request, product_id, quantity):
-    product = get_active_product(product_id)
+    return mutate_variant(request, legacy_variant(product_id), quantity)
+
+
+def update_item(request, product_id, quantity):
+    return mutate_variant(request, legacy_variant(product_id), quantity, replace=True)
+
+
+def delete_variant(request, variant_id):
     cart = get_cart(request)
-
-    key = str(product.pk)
-    existing = cart.get(key)
-
-    previous_quantity = (
-        existing["quantity"]
-        if existing and not existing["is_deleted"]
-        else 0
-    )
-
-    new_quantity = previous_quantity + quantity
-
-    if new_quantity > 10000:
-        raise ValidationError({
-            "quantity": "حداکثر تعداد هر محصول در سبد ۱۰۰۰۰ است.",
-        })
-
-    if new_quantity > product.stock:
-        raise ValidationError({
-            "quantity": "تعداد درخواستی از موجودی محصول بیشتر است.",
-        })
-
-    if key not in cart and len(cart) >= MAX_CART_ITEMS:
-        raise ValidationError({
-            "detail": "ظرفیت سبد خرید تکمیل شده است.",
-        })
-
-    cart[key] = {
-        "quantity": new_quantity,
-        "is_deleted": False,
-        "deleted_at": None,
-    }
-
+    key = f"v:{variant_id}"
+    if key not in cart: raise NotFound("این محصول در سبد خرید نیست.")
+    cart[key]["is_deleted"] = True
+    cart[key]["deleted_at"] = timezone.now().isoformat()
     save_cart(request, cart)
-
-    return {
-        "product_id": product.pk,
-        "quantity": new_quantity,
-    }
 
 
 def soft_delete_item(request, product_id):
-    cart = get_cart(request)
-    key = str(product_id)
-
-    item = cart.get(key)
-
-    if not item or item["is_deleted"]:
-        raise NotFound("این محصول در سبد خرید نیست.")
-
-    item["is_deleted"] = True
-    item["deleted_at"] = timezone.now().isoformat()
-
-    save_cart(request, cart)
+    return delete_variant(request, legacy_variant(product_id))
 
 
 def cart_summary(request):
     cart = get_cart(request)
-
-    active_cart = {
-        key: value
-        for key, value in cart.items()
-        if not value["is_deleted"]
-    }
-
-    products = Product.objects.filter(
-        pk__in=active_cart,
-        is_active=True,
-        category__is_active=True,
-    ).order_by("pk")
-
-    items = []
-    total_price = Decimal("0")
-    total_quantity = 0
-    visible_ids = set()
-
-    for product in products:
-        key = str(product.pk)
-        visible_ids.add(key)
-
-        quantity = active_cart[key]["quantity"]
-        item_total = product.price * quantity
-
-        total_price += item_total
-        total_quantity += quantity
-
-        image_url = (
-            request.build_absolute_uri(product.image.url)
-            if product.image
-            else None
-        )
-
-        items.append({
-            "product_id": product.pk,
-            "name": product.name,
-            "slug": product.slug,
-            "image": image_url,
-            "quantity": quantity,
-            "unit_price": str(product.price),
-            "item_total": str(item_total),
-            "stock": product.stock,
-            "is_available": quantity <= product.stock,
-        })
-
-    unavailable_ids = [
-        int(key)
-        for key in active_cart
-        if key not in visible_ids
-    ]
-
-    return {
-        "items": items,
-        "item_count": len(items),
-        "total_quantity": total_quantity,
-        "total_price": str(total_price),
-        "unavailable_product_ids": unavailable_ids,
-        "can_checkout": (
-            bool(items)
-            and not unavailable_ids
-            and all(item["is_available"] for item in items)
-        ),
-    }
+    variants = ProductVariant.objects.select_related("product").filter(
+        pk__in=[int(k[2:]) for k in cart], is_active=True,
+        product__is_active=True, product__category_id__in=get_visible_category_ids()).order_by("id")
+    items, visible = [], set()
+    total = Decimal("0")
+    for variant in variants:
+        product = variant.product
+        key = f"v:{variant.id}"
+        visible.add(key)
+        quantity = cart[key]["quantity"]
+        item_total = variant.price * quantity
+        total += item_total
+        image = variant.image or product.image
+        items.append({"cart_key": key, "variant_id": variant.id, "product_id": product.id,
+            "name": product.name, "slug": product.slug, "color": variant.color, "size": variant.size,
+            "image": request.build_absolute_uri(image.url) if image else None,
+            "quantity": quantity, "unit_price": str(variant.price), "item_total": str(item_total),
+            "stock": variant.stock, "is_available": quantity <= variant.stock})
+    unavailable = [key for key in cart if key not in visible]
+    return {"items": items, "item_count": len(items), "total_quantity": sum(i["quantity"] for i in items),
+        "total_price": str(total), "unavailable_product_ids": unavailable, "unavailable_items": unavailable,
+        "can_checkout": bool(items) and not unavailable and all(i["is_available"] for i in items)}

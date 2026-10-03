@@ -162,3 +162,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 PAYMENT_BACKEND = "test"
 ORDER_RESERVATION_MINUTES = 15
+
+if "store.apps.StoreConfig" not in INSTALLED_APPS:
+    INSTALLED_APPS.append("store.apps.StoreConfig")
+

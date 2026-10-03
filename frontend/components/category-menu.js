@@ -333,14 +333,7 @@ export default function CategoryMenu({
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  className="category-menu-trigger"
-                  onClick={() => selectCategory(group)}
-                >
-                  مشاهدهٔ همهٔ محصولات {group.name} ←
-                </button>
-
+               
                 <div className="category-menu-grid">
                   {group.children.map((category) => (
                     <CategoryBranch

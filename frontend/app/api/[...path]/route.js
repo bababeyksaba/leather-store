@@ -9,7 +9,7 @@ async function proxy(request, context) {
   const pathname = path.join("/");
 
   const allowed =
-    /^(products(?:\/.*)?|categories(?:\/.*)?|orders(?:\/.*)?|shipping-methods\/?|auth(?:\/.*)?|account(?:\/.*)?|cart(?:\/.*)?|media(?:\/.*)?|menu\/categories\/?)$/.test(
+    /^(store(?:\/.*)?|locations\/?|products(?:\/.*)?|categories(?:\/.*)?|orders(?:\/.*)?|shipping-methods\/?|auth(?:\/.*)?|account(?:\/.*)?|cart(?:\/.*)?|media(?:\/.*)?|menu\/categories\/?)$/.test(
       pathname
     );
 

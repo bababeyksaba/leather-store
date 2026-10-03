@@ -9,64 +9,21 @@ from django.utils import timezone
 
 from rest_framework.exceptions import ValidationError
 
-from products.models import Product, Category
+from products.models import Product, Category, ProductVariant
+from products.views import get_visible_category_ids
+from products.variants import sync_legacy_stock
+from carts.services import normalize_cart
 from users.models import CustomerProfile, Address
 
 from .models import Order, OrderItem, ShippingMethod
 
 
 def cart_quantities(session):
-    raw = session.get("cart", {})
-
-    if not isinstance(raw, dict):
-        raise ValidationError({
-            "detail": "سبد خرید معتبر نیست."
-        })
-
-    result = {}
-
-    for key, value in raw.items():
-        if (
-            isinstance(value, dict)
-            and value.get("is_deleted") is True
-        ):
-            continue
-
-        quantity = (
-            value.get("quantity")
-            if isinstance(value, dict)
-            else value
-        )
-
-        valid = (
-            str(key).isascii()
-            and str(key).isdecimal()
-            and int(key) >= 1
-            and type(quantity) is int
-            and 1 <= quantity <= 10000
-        )
-
-        if not valid:
-            raise ValidationError({
-                "detail": (
-                    "تعداد یا شناسه محصول در سبد معتبر نیست."
-                )
-            })
-
-        product_id = int(key)
-
-        if product_id in result:
-            raise ValidationError({
-                "detail": "شناسه محصول در سبد تکراری است."
-            })
-
-        result[product_id] = quantity
-
+    normalized = normalize_cart(session.get("cart", {}), strict=True)
+    result = {int(key[2:]): value["quantity"] for key, value in normalized.items()}
     if not result or len(result) > 100:
-        raise ValidationError({
-            "detail": "سبد خالی است یا بیش از ظرفیت مجاز است."
-        })
-
+        raise ValidationError("سبد خالی است یا بیش از ظرفیت مجاز است.")
+    session["cart"] = normalized
     return result
 
 
@@ -127,57 +84,23 @@ def create_order(user, session, data):
 
     quantities = cart_quantities(session)
 
-    products = list(
-        Product.objects
-        .select_for_update()
-        .filter(pk__in=quantities)
-        .order_by("pk")
-    )
-
-    categories = {
-        category.pk: category
-        for category in (
-            Category.objects
-            .select_for_update()
-            .filter(
-                pk__in={
-                    product.category_id
-                    for product in products
-                }
-            )
-            .order_by("pk")
-        )
-    }
-
-    if len(products) != len(quantities):
-        raise ValidationError({
-            "detail": "بعضی محصولات دیگر موجود نیستند."
-        })
-
+    # A consistent product -> variant lock order is shared with release_stock.
+    product_ids = list(ProductVariant.objects.filter(pk__in=quantities).values_list("product_id", flat=True))
+    products = {p.id: p for p in Product.objects.select_for_update().filter(pk__in=product_ids).order_by("pk")}
+    variants = list(ProductVariant.objects.select_for_update().filter(pk__in=quantities).order_by("pk"))
+    visible_categories = get_visible_category_ids()
+    if len(variants) != len(quantities):
+        raise ValidationError("بعضی اقلام دیگر موجود نیستند.")
     subtotal = Decimal("0")
-
-    for product in products:
-        if (
-            not product.is_active
-            or not categories[product.category_id].is_active
-        ):
-            raise ValidationError({
-                "detail": f"محصول {product.name} غیرفعال است."
-            })
-
-        if product.stock < quantities[product.pk]:
-            raise ValidationError({
-                "detail": f"موجودی {product.name} کافی نیست."
-            })
-
-        if product.price < 0:
-            raise ValidationError({
-                "detail": "قیمت محصول معتبر نیست."
-            })
-
-        subtotal += (
-            product.price * quantities[product.pk]
-        )
+    for variant in variants:
+        product = products[variant.product_id]
+        if not variant.is_active or not product.is_active or product.category_id not in visible_categories:
+            raise ValidationError(f"محصول {product.name} غیرفعال است.")
+        if variant.stock < quantities[variant.pk]:
+            raise ValidationError(f"موجودی رنگ/سایز انتخاب‌شدهٔ {product.name} کافی نیست.")
+        if variant.price < 0:
+            raise ValidationError("قیمت معتبر نیست.")
+        subtotal += variant.price * quantities[variant.pk]
 
     order = Order.objects.create(
         user=user,
@@ -209,50 +132,34 @@ def create_order(user, session, data):
         ),
     )
 
-    for product in products:
-        quantity = quantities[product.pk]
-
-        OrderItem.objects.create(
-            order=order,
-            product=product,
-            name=product.name,
-            sku=product.sku,
-            color=product.color,
-            material=product.material,
-            quantity=quantity,
-            unit_price=product.price,
-            item_total=product.price * quantity,
-        )
-
-        product.stock -= quantity
-        product.save(update_fields=["stock"])
+    for variant in variants:
+        product = products[variant.product_id]
+        quantity = quantities[variant.pk]
+        OrderItem.objects.create(order=order, product=product, variant=variant, cart_key=f"v:{variant.id}",
+            name=product.name, sku=variant.sku, color=variant.color, size=variant.size,
+            material=product.material, quantity=quantity, unit_price=variant.price,
+            item_total=variant.price * quantity)
+        variant.stock -= quantity
+        variant.save(update_fields=["stock"])
+    sync_legacy_stock(products.keys())
 
     return order, True
 
 
 def release_stock(order):
     items = list(order.items.all())
-
-    products = {
-        product.pk: product
-        for product in (
-            Product.objects
-            .select_for_update()
-            .filter(
-                pk__in=[
-                    item.product_id
-                    for item in items
-                ]
-            )
-            .order_by("pk")
-        )
-    }
-
+    products = {p.id: p for p in Product.objects.select_for_update().filter(pk__in=[i.product_id for i in items]).order_by("pk")}
+    variants = {v.id: v for v in ProductVariant.objects.select_for_update().filter(pk__in=[i.variant_id for i in items if i.variant_id]).order_by("pk")}
     for item in items:
-        product = products[item.product_id]
-
-        product.stock += item.quantity
-        product.save(update_fields=["stock"])
+        if item.variant_id:
+            variant = variants[item.variant_id]
+            variant.stock += item.quantity
+            variant.save(update_fields=["stock"])
+        else:
+            product = products[item.product_id]
+            product.stock += item.quantity
+            product.save(update_fields=["stock"])
+    sync_legacy_stock({i.product_id for i in items if i.variant_id})
 
 
 @transaction.atomic
@@ -336,13 +243,10 @@ def clear_purchased_cart(session, order):
     if session.get("checkout_order") != str(order.number):
         return
 
-    cart = session.get("cart", {})
-
-    if not isinstance(cart, dict):
-        return
+    cart = normalize_cart(session.get("cart", {}))
 
     for item in order.items.all():
-        key = str(item.product_id)
+        key = f"v:{item.variant_id}" if item.variant_id else str(item.product_id)
         stored = cart.get(key)
 
         if (
@@ -377,3 +281,4 @@ def clear_purchased_cart(session, order):
     session["cart"] = cart
     session.pop("checkout_order", None)
     session.modified = True
+

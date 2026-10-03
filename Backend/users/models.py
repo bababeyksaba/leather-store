@@ -62,7 +62,27 @@ class CustomerProfile(models.Model):
         verbose_name_plural = "پروفایل مشتریان"
 
 
+class Province(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="نام استان")
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "استان"
+        verbose_name_plural = "استان‌ها"
+    def __str__(self): return self.name
+
+class City(models.Model):
+    province = models.ForeignKey(Province, on_delete=models.CASCADE, related_name="cities", verbose_name="استان")
+    name = models.CharField(max_length=100, verbose_name="نام شهر")
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "شهر"
+        verbose_name_plural = "شهرها"
+        constraints = [models.UniqueConstraint(fields=["province", "name"], name="unique_city_in_province")]
+    def __str__(self): return f"{self.province.name} / {self.name}"
+
 class Address(models.Model):
+    is_default = models.BooleanField(default=False, verbose_name="آدرس پیش‌فرض")
+
     profile = models.ForeignKey(
         CustomerProfile,
         on_delete=models.CASCADE,
@@ -103,7 +123,8 @@ class Address(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["-is_default", "-created_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["profile"], condition=models.Q(is_default=True), name="one_default_address_per_profile")]
         verbose_name = "آدرس"
         verbose_name_plural = "آدرس‌ها"
 

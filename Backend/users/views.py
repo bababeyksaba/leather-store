@@ -284,6 +284,7 @@ class VerifyOTPAPIView(PublicAPIView):
             state.save()
 
         cart = request.session.get("cart", {})
+        checkout_order = request.session.get("checkout_order")
 
         login(
             request,
@@ -292,6 +293,8 @@ class VerifyOTPAPIView(PublicAPIView):
         )
 
         request.session["cart"] = cart
+        if checkout_order:
+            request.session["checkout_order"] = checkout_order
         request.session.pop("otp_phone", None)
         request.session.pop("otp_challenge", None)
 
@@ -304,10 +307,13 @@ class VerifyOTPAPIView(PublicAPIView):
 class LogoutAPIView(PrivateAPIView):
     def post(self, request):
         cart = request.session.get("cart", {})
+        checkout_order = request.session.get("checkout_order")
 
         logout(request)
 
         request.session["cart"] = cart
+        if checkout_order:
+            request.session["checkout_order"] = checkout_order
 
         return Response({
             "detail": "از حساب خارج شدید.",
@@ -372,7 +378,17 @@ class AddressDetailAPIView(PrivateAPIView):
         return Response(serializer.data)
 
     def delete(self, request, address_id):
-        self.get_address(request, address_id).delete()
+        with transaction.atomic():
+            profile = customer_profile(request)
+            CustomerProfile.objects.select_for_update().get(pk=profile.pk)
+            address = self.get_address(request, address_id)
+            was_default = address.is_default
+            address.delete()
+            if was_default:
+                replacement = profile.addresses.order_by("id").first()
+                if replacement:
+                    replacement.is_default = True
+                    replacement.save(update_fields=["is_default"])
 
         return Response(status=204)
 
@@ -380,6 +396,7 @@ class AddressDetailAPIView(PrivateAPIView):
 class FavoriteListAPIView(PrivateAPIView):
     def get(self, request):
         from products.models import Product
+        from products.views import get_visible_category_ids
         from products.serializers import ProductListSerializer
 
         favorites = Favorite.objects.filter(
@@ -390,7 +407,7 @@ class FavoriteListAPIView(PrivateAPIView):
             Product.objects
             .filter(
                 is_active=True,
-                category__is_active=True,
+                category_id__in=get_visible_category_ids(),
                 pk__in=favorites,
             )
             .select_related("category")
@@ -409,11 +426,12 @@ class FavoriteListAPIView(PrivateAPIView):
 class FavoriteDetailAPIView(PrivateAPIView):
     def post(self, request, product_id):
         from products.models import Product
+        from products.views import get_visible_category_ids
 
         product = get_object_or_404(
             Product.objects.filter(
                 is_active=True,
-                category__is_active=True,
+                category_id__in=get_visible_category_ids(),
             ).select_related("category"),
             pk=product_id,
         )
@@ -438,9 +456,11 @@ class FavoriteDetailAPIView(PrivateAPIView):
 
 class SupportAPIView(PublicAPIView):
     def get(self, request):
+        from store.models import StoreSettings
+        config = StoreSettings.objects.first()
         return Response({
-            "whatsapp": getattr(settings, "SUPPORT_WHATSAPP", ""),
-            "instagram": getattr(settings, "SUPPORT_INSTAGRAM", ""),
+            "whatsapp": (config.whatsapp if config else "") or getattr(settings, "SUPPORT_WHATSAPP", ""),
+            "instagram": (config.instagram if config else "") or getattr(settings, "SUPPORT_INSTAGRAM", ""),
         })
 
 
@@ -464,3 +484,10 @@ class CheckoutAPIView(PrivateAPIView):
                 many=True,
             ).data,
         })
+
+class LocationsAPIView(PublicAPIView):
+    def get(self, request):
+        from .models import Province
+        return Response([{"name": p.name, "cities": list(p.cities.values_list("name", flat=True))}
+            for p in Province.objects.prefetch_related("cities").all()])
+

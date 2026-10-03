@@ -1,5 +1,6 @@
 "use client";
 
+import PriceUnit from "../../../../components/price-unit";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -12,6 +13,10 @@ import {
 
 import { useCart } from "../../../../components/cart-context";
 
+
+import VariantPicker from "../../../../components/variant-picker";
+import ReviewForm from "../../../../components/review-form";
+import FavoriteButton from "../../../../components/favorite-button";
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -66,13 +71,18 @@ export default function ProductPage() {
     <ProductDetails
       key={product.id}
       product={product}
+      onReload={() => setRetry(v => v + 1)}
     />
   );
 }
 
 
-function ProductDetails({ product }) {
-  const { add, busy } = useCart();
+function ProductDetails({ product, onReload }) {
+  const { add, busy, cart } = useCart();
+  const variants = product.variants || [];
+  const [variantId, setVariantId] = useState(variants.find(v => v.stock > 0)?.id ?? variants[0]?.id);
+  const variant = variants.find(v => v.id === variantId);
+  const inCart = cart?.items?.find(i => i.variant_id === variantId)?.quantity || 0;
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -91,7 +101,7 @@ function ProductDetails({ product }) {
 
   const images = [
     ...new Set(
-      [product.image, ...gallery].filter(
+      [variant?.image, product.image, ...gallery].filter(
         (value) => typeof value === "string" && value
       )
     ),
@@ -118,10 +128,10 @@ function ProductDetails({ product }) {
     "محصول چرمی";
 
   const value = Number(quantity);
-  const maxQuantity = Math.min(product.stock, 10000);
+  const maxQuantity = Math.max(0, Math.min((variant?.stock || 0) - inCart, 10000 - inCart));
 
   const available =
-    product.stock > 0 &&
+    variant?.stock > 0 &&
     product.is_active !== false;
 
   const validQuantity =
@@ -131,17 +141,17 @@ function ProductDetails({ product }) {
 
   const specifications = [
     ["جنس", product.material],
-    ["رنگ", product.color],
+    ["رنگ", variant?.color],
     ["ابعاد", product.dimensions],
-    ["اندازه", product.size],
-    ["کد محصول", product.sku],
+    ["اندازه", variant?.size],
+    ["کد محصول", variant?.sku || product.sku],
   ];
 
   const tabs = [
     ["description", "توضیحات محصول"],
     ["specs", "مشخصات و اندازه"],
     ["care", "نحوهٔ نگهداری"],
-    ["reviews", `نظرات (${money(reviewCount)})`],
+    
   ];
 
   useEffect(() => {
@@ -169,7 +179,7 @@ function ProductDetails({ product }) {
     setError("");
 
     try {
-      await add(product.id, value);
+      await add(product.id, value, variantId);
       setNotice("محصول به سبد خرید اضافه شد.");
     } catch (err) {
       setError(err.message);
@@ -236,9 +246,8 @@ function ProductDetails({ product }) {
           <h1>{product.name}</h1>
 
           <a
-            href="#product-information"
+            href="#product-reviews"
             className="rating-line"
-            onClick={() => setActiveTab("reviews")}
           >
             <span aria-hidden="true">★</span>
 
@@ -250,13 +259,13 @@ function ProductDetails({ product }) {
           </a>
 
           <div className="detail-price">
-            {money(product.price)}
-            <small>واحد قیمت فروشگاه</small>
+            {money(variant?.price ?? product.price)}
+            <small><PriceUnit /></small>
           </div>
 
           <p className="availability">
             {available
-              ? `موجود · ${money(product.stock)} عدد`
+              ? `موجود · ${money(variant?.stock ?? 0)} عدد`
               : "ناموجود"}
           </p>
 
@@ -266,30 +275,9 @@ function ProductDetails({ product }) {
             </p>
           )}
 
-          <div className="option-block">
-            <span>رنگ محصول</span>
-
-            {product.color ? (
-              <span className="color-option">
-                {product.color} ✓
-              </span>
-            ) : (
-              <span className="muted">
-                رنگ مشخص نشده است.
-              </span>
-            )}
-          </div>
-
-          {(product.size || product.dimensions) && (
-            <div className="option-block">
-              <span>اندازه / ابعاد</span>
-
-              <strong>
-                {product.size || product.dimensions}
-              </strong>
-            </div>
-          )}
-
+          <VariantPicker variants={variants} value={variantId} disabled={busy} onChange={id => { setVariantId(id); setQuantity(1); setSelectedImage(0); }} />
+          {inCart > 0 && <p className="in-cart-count">{money(inCart)} عدد از این رنگ و سایز در سبد شماست.</p>}
+          <FavoriteButton productId={product.id} />
           <form
             className="purchase-form"
             onSubmit={handleAddToCart}
@@ -452,8 +440,12 @@ function ProductDetails({ product }) {
             </>
           )}
 
-          {activeTab === "reviews" && (
-            <>
+
+        </div>
+      </section>
+
+      <section id="product-reviews" className="product-reviews" aria-label="نظرات و امتیازها">
+
               <h2>نظرات و امتیازها</h2>
 
               {averageRating != null && (
@@ -507,13 +499,8 @@ function ProductDetails({ product }) {
                 </p>
               )}
 
-              <p className="muted">
-                ثبت نظر و امتیاز پس از اتصال API نظرات
-                فعال می‌شود.
-              </p>
-            </>
-          )}
-        </div>
+              <ReviewForm productId={product.id} onSaved={onReload} />
+
       </section>
 
       {zoom && (

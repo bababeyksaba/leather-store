@@ -365,7 +365,7 @@ export default function ProfilePage() {
                     className="address-card"
                     key={address.id}
                   >
-                    <h3>{address.title}</h3>
+                    <h3>{address.title} {address.is_default && <small> · پیش‌فرض</small>}</h3>
 
                     <p>
                       {address.province}، {address.city}،
@@ -386,6 +386,17 @@ export default function ProfilePage() {
                     >
                       ویرایش آدرس
                     </button>
+                    {!address.is_default && <button className="plain-button" disabled={busy} onClick={async () => {
+                      setBusy(true);
+                      try { await accountMutation(`account/addresses/${address.id}/`, "PATCH", { is_default: true }); setAddresses(await api("account/addresses/")); }
+                      catch (e) { setError(e.message); } finally { setBusy(false); }
+                    }}>انتخاب پیش‌فرض</button>}
+                    <button className="plain-button" disabled={busy} onClick={async () => {
+                      if (!window.confirm("این آدرس حذف شود؟")) return;
+                      setBusy(true);
+                      try { await accountMutation(`account/addresses/${address.id}/`, "DELETE"); setAddresses(await api("account/addresses/")); }
+                      catch (e) { setError(e.message); } finally { setBusy(false); }
+                    }}>حذف آدرس</button>
                   </article>
                 ))}
               </section>
@@ -499,3 +510,4 @@ export default function ProfilePage() {
     </section>
   );
 }
+

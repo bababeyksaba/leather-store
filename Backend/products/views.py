@@ -1,6 +1,6 @@
 from collections import defaultdict, deque
 
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Exists, OuterRef, Min, Avg, Count, Subquery
 from django.shortcuts import get_object_or_404
 
 from rest_framework import serializers
@@ -11,6 +11,7 @@ from .models import (
     Category,
     Product,
     ProductReview,
+    ProductVariant,
 )
 
 from .serializers import (
@@ -47,6 +48,8 @@ class ProductFilterSerializer(serializers.Serializer):
         allow_blank=True,
         max_length=50,
     )
+
+    size = serializers.CharField(required=False, allow_blank=True, max_length=100)
 
     min_price = serializers.DecimalField(
         required=False,
@@ -195,7 +198,7 @@ def get_visible_products(visible_ids=None):
             is_active=True,
             category_id__in=visible_ids,
         )
-        .select_related("category")
+        .select_related("category").prefetch_related("variants")
     )
 
 
@@ -258,6 +261,9 @@ class ProductListAPIView(
                 | Q(description__icontains=search)
                 | Q(material__icontains=search)
                 | Q(color__icontains=search)
+                | Q(variants__color__icontains=search)
+                | Q(variants__size__icontains=search)
+                | Q(variants__sku__icontains=search)
                 | Q(category__name__icontains=search)
             )
 
@@ -277,36 +283,23 @@ class ProductListAPIView(
                 material__icontains=material
             )
 
-        color = filters.get("color", "").strip()
-
-        if color:
-            queryset = queryset.filter(
-                color__icontains=color
-            )
-
-        min_price = filters.get("min_price")
-
-        if min_price is not None:
-            queryset = queryset.filter(
-                price__gte=min_price
-            )
-
-        max_price = filters.get("max_price")
-
-        if max_price is not None:
-            queryset = queryset.filter(
-                price__lte=max_price
-            )
-
-        # true: فقط محصولات موجود
-        # false یا نبود پارامتر: همهٔ محصولات فعال
+        # One variant must satisfy every option; avoids mixing red/large and blue/small.
+        variants = ProductVariant.objects.filter(product_id=OuterRef("pk"), is_active=True)
+        for field in ("color", "size"):
+            value = filters.get(field, "").strip()
+            if value:
+                variants = variants.filter(**{field + "__icontains": value})
+        if filters.get("min_price") is not None:
+            variants = variants.filter(price__gte=filters["min_price"])
+        if filters.get("max_price") is not None:
+            variants = variants.filter(price__lte=filters["max_price"])
         if filters.get("available") is True:
-            queryset = queryset.filter(stock__gt=0)
-
-        return queryset.order_by(
-            filters["ordering"],
-            "id",
+            variants = variants.filter(stock__gt=0)
+        queryset = queryset.filter(Exists(variants)).annotate(
+            display_price=Min("variants__price", filter=Q(variants__is_active=True))
         )
+        ordering = filters["ordering"].replace("price", "display_price")
+        return queryset.order_by(ordering, "id")
 
 
 # جزئیات محصول همراه با تصاویر و نظرات تأییدشده
@@ -321,17 +314,21 @@ class ProductDetailBaseAPIView(
         approved_reviews = (
             ProductReview.objects
             .filter(is_approved=True)
-            .select_related("user")
+            .select_related("user__customer_profile")
             .order_by("-created_at", "-id")
         )
 
         return (
             get_visible_products(self.get_visible_ids())
+            .annotate(
+                approved_rating=Subquery(ProductReview.objects.filter(product_id=OuterRef("pk"), is_approved=True).values("product_id").annotate(value=Avg("rating")).values("value")),
+                approved_count=Subquery(ProductReview.objects.filter(product_id=OuterRef("pk"), is_approved=True).values("product_id").annotate(value=Count("id")).values("value")),
+            )
             .prefetch_related(
                 "images",
                 Prefetch(
                     "reviews",
-                    queryset=approved_reviews,
+                    queryset=approved_reviews[:50],
                     to_attr="approved_reviews",
                 ),
             )
@@ -472,3 +469,65 @@ class MenuCategoryAPIView(ListAPIView):
         )
 
         return context
+
+# Authenticated users can submit/update one review; edits require reapproval.
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import transaction
+from users.views import PrivateAPIView
+
+
+class ReviewInputSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductReview
+        fields = ("rating", "title", "comment")
+
+    def validate_comment(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("متن نظر را وارد کنید.")
+        return value.strip()
+
+
+class ProductReviewAPIView(PrivateAPIView):
+    def get_product(self, product_id):
+        return get_object_or_404(get_visible_products(), pk=product_id)
+
+    def get(self, request, product_id):
+        product = self.get_product(product_id)
+        review = ProductReview.objects.filter(product=product, user=request.user).first()
+        return Response(None if not review else {
+            "rating": review.rating, "title": review.title, "comment": review.comment,
+            "is_approved": review.is_approved,
+        })
+
+    @transaction.atomic
+    def post(self, request, product_id):
+        from django.contrib.auth import get_user_model
+        product = self.get_product(product_id)
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        serializer = ReviewInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        review, created = ProductReview.objects.update_or_create(
+            product=product, user=request.user,
+            defaults={**serializer.validated_data, "is_approved": False},
+        )
+        return Response({"detail": "نظر شما ثبت شد و پس از بررسی نمایش داده می‌شود."}, status=201 if created else 200)
+
+    def delete(self, request, product_id):
+        ProductReview.objects.filter(product_id=product_id, user=request.user).delete()
+        return Response(status=204)
+
+
+class ProductFilterOptionsAPIView(ListAPIView):
+    permission_classes = (AllowAny,)
+    pagination_class = None
+
+    def get(self, request):
+        products = get_visible_products()
+        variants = ProductVariant.objects.filter(product__in=products, is_active=True)
+        return Response({
+            "colors": list(variants.exclude(color="").order_by("color").values_list("color", flat=True).distinct()),
+            "sizes": list(variants.exclude(size="").order_by("size").values_list("size", flat=True).distinct()),
+            "materials": list(products.exclude(material="").order_by("material").values_list("material", flat=True).distinct()),
+        })
+

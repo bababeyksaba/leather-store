@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from products.models import Category, Product
+from products.models import Category, Product, ProductVariant
 
 
 class CartAPITests(TestCase):
@@ -24,6 +24,8 @@ class CartAPITests(TestCase):
             stock=8,
             is_active=True,
         )
+
+        cls.variant = ProductVariant.objects.create(product=cls.product, sku="CART-TEST-V1", price=3500000, stock=8, is_default=True)
 
     def setUp(self):
         self.client = APIClient(enforce_csrf_checks=True)
@@ -86,7 +88,7 @@ class CartAPITests(TestCase):
 
         self.assertEqual(response.status_code, 204)
 
-        item = self.client.session["cart"][str(self.product.pk)]
+        item = self.client.session["cart"][f"v:{self.variant.pk}"]
 
         self.assertTrue(item["is_deleted"])
         self.assertIsNotNone(item["deleted_at"])
@@ -141,8 +143,8 @@ class CartAPITests(TestCase):
     def test_stock_reduction_is_reported(self):
         self.add(3)
 
-        self.product.stock = 1
-        self.product.save(update_fields=["stock"])
+        self.variant.stock = 1
+        self.variant.save(update_fields=["stock"])
 
         data = self.client.get("/api/cart/").json()
 
@@ -159,7 +161,7 @@ class CartAPITests(TestCase):
             2,
         )
 
-    def test_patch_not_supported(self):
+    def test_patch_missing_item(self):
         response = self.client.patch(
             self.add_url,
             {"quantity": 1},
@@ -167,4 +169,4 @@ class CartAPITests(TestCase):
             HTTP_X_CSRFTOKEN=self.token,
         )
 
-        self.assertEqual(response.status_code, 405)
+        self.assertEqual(response.status_code, 404)

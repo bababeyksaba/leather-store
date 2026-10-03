@@ -22,3 +22,4 @@ class Command(BaseCommand):
             "Demo shipping methods are ready; "
             "edit their fees in admin."
         )
+

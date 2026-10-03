@@ -30,6 +30,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
 
         fields = [
+            "id",
+            "variant_id",
+            "size",
+            "cart_key",
             "product_id",
             "name",
             "sku",
@@ -94,3 +98,4 @@ class OrderSerializer(serializers.ModelSerializer):
             "shipped_at",
             "delivered_at",
         ]
+

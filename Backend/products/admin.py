@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 
 from .models import (
@@ -248,3 +249,67 @@ class ProductReviewAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+from .models import ProductVariant
+from django.forms.models import BaseInlineFormSet
+from django.core.exceptions import ValidationError
+from .variants import sync_legacy_stock
+
+class VariantFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        remaining = [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
+        if not remaining:
+            raise ValidationError("حداقل یک رنگ/سایز برای محصول ثبت کنید.")
+
+class ProductVariantForm(forms.ModelForm):
+    class Meta:
+        model = ProductVariant
+        fields = "__all__"
+        widgets = {"color_hex": forms.TextInput(attrs={"type": "color"})}
+
+
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    form = ProductVariantForm
+    formset = VariantFormSet
+    extra = 1
+    fields = ("sku", "color", "color_hex", "size", "price", "stock", "image", "is_active")
+
+ProductAdmin.inlines = [ProductImageInline, ProductVariantInline]
+ProductAdmin.list_editable = ("is_active",)
+ProductAdmin.readonly_fields = ("created_at", "updated_at", "stock")
+_original_save_related = ProductAdmin.save_related
+
+def save_related_with_stock(self, request, form, formsets, change):
+    _original_save_related(self, request, form, formsets, change)
+    sync_legacy_stock([form.instance.pk])
+
+ProductAdmin.save_related = save_related_with_stock
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    form = ProductVariantForm
+    list_display = ("product", "sku", "color", "size", "price", "stock", "is_active")
+    search_fields = ("sku", "product__name", "color", "size")
+    list_filter = ("is_active", "color", "size")
+    readonly_fields = ("is_default",)
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("is_default", "product") if obj else ("is_default",)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        sync_legacy_stock([obj.product_id])
+
+    def delete_model(self, request, obj):
+        product_id = obj.product_id
+        super().delete_model(request, obj)
+        sync_legacy_stock([product_id])
+
+    def delete_queryset(self, request, queryset):
+        product_ids = list(queryset.values_list("product_id", flat=True))
+        super().delete_queryset(request, queryset)
+        sync_legacy_stock(product_ids)

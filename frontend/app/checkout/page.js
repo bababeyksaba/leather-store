@@ -85,7 +85,7 @@ export default function CheckoutPage() {
         setData({ account, cart, shipping });
 
         setAddressId(
-          String(account.addresses[0]?.id || "")
+          String((account.addresses.find(a => a.is_default) || account.addresses[0])?.id || "")
         );
 
         setShippingId(String(shipping[0]?.id || ""));
@@ -115,7 +115,8 @@ export default function CheckoutPage() {
         addressId,
         shippingId,
         items: data.cart.items.map((item) => [
-          item.product_id,
+          item.variant_id,
+          item.cart_key,
           item.quantity,
         ]),
       });
@@ -296,7 +297,7 @@ export default function CheckoutPage() {
           <h2>خلاصهٔ خرید</h2>
 
           {cart.items?.map((item) => (
-            <p key={item.product_id}>
+            <p key={item.cart_key}>
               {item.name} · تعداد: {money(item.quantity)} ·
               {" "}
               {money(item.item_total)}
@@ -346,3 +347,4 @@ export default function CheckoutPage() {
     </section>
   );
 }
+

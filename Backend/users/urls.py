@@ -15,7 +15,10 @@ from .views import (
 )
 
 
+from .views import LocationsAPIView
+
 urlpatterns = [
+    path("locations/", LocationsAPIView.as_view()),
     path("auth/session/", SessionAPIView.as_view()),
     path("auth/request-code/", RequestOTPAPIView.as_view()),
     path("auth/verify-code/", VerifyOTPAPIView.as_view()),
@@ -38,3 +41,4 @@ urlpatterns = [
     path("account/support/", SupportAPIView.as_view()),
     path("account/checkout/", CheckoutAPIView.as_view()),
 ]
+

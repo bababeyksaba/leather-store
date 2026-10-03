@@ -36,6 +36,11 @@ export default function CartPage() {
         </p>
       )}
 
+      {cart?.unavailable_items?.length > 0 && <div className="error" role="alert">
+        <p>برخی اقلام دیگر قابل خرید نیستند. آن‌ها را از سبد حذف کنید.</p>
+        {cart.unavailable_items.map(key => <button key={key} disabled={busy} onClick={() => remove(Number(key.split(":")[1])).catch(() => {})}>حذف قلم ناموجود {key}</button>)}
+      </div>}
+
       {!cart ? (
         <p>در حال دریافت سبد خرید…</p>
       ) : !cart.items.length ? (
@@ -49,7 +54,7 @@ export default function CartPage() {
             {cart.items.map((item) => (
               <article
                 className="cart-item"
-                key={item.product_id}
+                key={item.cart_key}
               >
                 <div className="cart-photo">
                   {imageUrl(item.image) && (
@@ -62,6 +67,7 @@ export default function CartPage() {
 
                 <div>
                   <h2>{item.name}</h2>
+                  <p>{[item.color, item.size].filter(Boolean).join(" / ")}</p>
 
                   <p>
                     تعداد: {money(item.quantity)}
@@ -79,7 +85,7 @@ export default function CartPage() {
                   )}
 
                   <QuantityEditor
-                    key={`${item.product_id}-${item.quantity}`}
+                    key={`${item.cart_key}-${item.quantity}`}
                     item={item}
                     update={update}
                     busy={busy}
@@ -89,7 +95,7 @@ export default function CartPage() {
                     className="remove"
                     disabled={busy}
                     onClick={() =>
-                      remove(item.product_id).catch(() => {})
+                      remove(item.variant_id).catch(() => {})
                     }
                   >
                     حذف از سبد
@@ -163,7 +169,7 @@ function QuantityEditor({ item, update, busy }) {
     setError("");
 
     try {
-      await update(item.product_id, value);
+      await update(item.variant_id, value);
     } catch (err) {
       setError(err.message);
     }
@@ -203,3 +209,4 @@ function QuantityEditor({ item, update, busy }) {
     </div>
   );
 }
+

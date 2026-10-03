@@ -9,7 +9,11 @@ from .views import (
 )
 
 
+from .views import ProductReviewAPIView, ProductFilterOptionsAPIView
+
 urlpatterns = [
+    path("products/filters/", ProductFilterOptionsAPIView.as_view()),
+    path("products/id/<int:product_id>/review/", ProductReviewAPIView.as_view()),
 
     # ==========================
     # لیست محصولات

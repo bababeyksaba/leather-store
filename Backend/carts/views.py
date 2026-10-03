@@ -77,3 +77,23 @@ class CartItemDeleteAPIView(CartBaseAPIView):
         return Response(
             status=status.HTTP_204_NO_CONTENT,
         )
+
+from .services import mutate_variant, delete_variant
+
+class CartVariantAPIView(CartBaseAPIView):
+    def write(self, request, variant_id, replace):
+        serializer = CartItemInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = mutate_variant(request, variant_id, serializer.validated_data["quantity"], replace)
+        return Response(result, status=200 if replace else 201)
+
+    def post(self, request, variant_id):
+        return self.write(request, variant_id, False)
+
+    def patch(self, request, variant_id):
+        return self.write(request, variant_id, True)
+
+    def delete(self, request, variant_id):
+        delete_variant(request, variant_id)
+        return Response(status=204)
+

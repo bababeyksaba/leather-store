@@ -63,6 +63,9 @@ class OrderItemInline(admin.TabularInline):
     can_delete = False
 
     readonly_fields = [
+        "variant",
+        "size",
+        "cart_key",
         "product",
         "name",
         "sku",

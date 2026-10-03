@@ -165,6 +165,10 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    variant = models.ForeignKey("products.ProductVariant", on_delete=models.PROTECT, null=True, blank=True)
+    size = models.CharField(max_length=100, blank=True)
+    cart_key = models.CharField(max_length=80, blank=True)
+
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,

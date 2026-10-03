@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import (
+    RegexValidator,
     MinValueValidator,
     MaxValueValidator,
 )
@@ -370,3 +371,28 @@ class ProductReview(models.Model):
             f"{self.user.get_username()} — "
             f"امتیاز {self.rating}"
         )
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants", verbose_name="محصول")
+    sku = models.CharField(max_length=50, unique=True, verbose_name="کد تنوع")
+    color = models.CharField(max_length=50, blank=True, verbose_name="رنگ")
+    color_hex = models.CharField(max_length=7, blank=True, validators=[RegexValidator(r"^#[0-9a-fA-F]{6}$", "کد رنگ باید مانند #800020 باشد.")], verbose_name="رنگ پالت", help_text="رنگ نمایشی دایرهٔ پالت را انتخاب کنید.")
+    size = models.CharField(max_length=100, blank=True, verbose_name="سایز")
+    price = models.DecimalField(max_digits=12, decimal_places=0, validators=[MinValueValidator(0)], verbose_name="قیمت")
+    stock = models.PositiveIntegerField(default=0, verbose_name="موجودی")
+    image = models.ImageField(upload_to="products/variants/", blank=True, null=True, verbose_name="تصویر رنگ")
+    is_active = models.BooleanField(default=True, verbose_name="فعال")
+    is_default = models.BooleanField(default=False, verbose_name="تنوع اولیه برای سبدهای قدیمی")
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "رنگ و سایز محصول"
+        verbose_name_plural = "رنگ‌ها و سایزهای محصول"
+        constraints = [
+            models.UniqueConstraint(fields=["product", "color", "size"], name="unique_product_color_size"),
+            models.UniqueConstraint(fields=["product"], condition=models.Q(is_default=True), name="one_legacy_default_variant"),
+            models.CheckConstraint(condition=models.Q(price__gte=0), name="variant_price_nonnegative"),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} — {self.color or 'بدون رنگ'} / {self.size or 'بدون سایز'}"

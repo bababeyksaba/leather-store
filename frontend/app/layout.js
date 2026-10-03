@@ -9,6 +9,8 @@ import { AuthProvider } from "../components/auth-context";
 import CartLink from "../components/cart-link";
 import AccountLink from "../components/account-link";
 
+import StoreFooter from "../components/store-footer";
+
 export const metadata = {
   title: "فروشگاه چرم",
   description: "محصولات چرمی و سبد خرید",
@@ -35,9 +37,7 @@ export default function Layout({ children }) {
 
             <main>{children}</main>
 
-            <footer>
-              فروشگاه چرم · انتخابی برای هر روز
-            </footer>
+            <StoreFooter />
           </CartProvider>
         </AuthProvider>
       </body>

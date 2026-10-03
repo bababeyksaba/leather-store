@@ -67,14 +67,14 @@ export function CartProvider({ children }) {
         busy,
         refresh,
 
-        add: (id, quantity) =>
-          mutate(`cart/items/${id}/`, "POST", quantity),
+        add: (id, quantity, variantId) =>
+          mutate(variantId ? `cart/variants/${variantId}/` : `cart/items/${id}/`, "POST", quantity),
 
         update: (id, quantity) =>
-          mutate(`cart/items/${id}/`, "PATCH", quantity),
+          mutate(`cart/variants/${id}/`, "PATCH", quantity),
 
         remove: (id) =>
-          mutate(`cart/items/${id}/delete/`, "DELETE"),
+          mutate(`cart/variants/${id}/`, "DELETE"),
       }}
     >
       {children}
