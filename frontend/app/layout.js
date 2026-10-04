@@ -1,19 +1,17 @@
 import "./globals.css";
+import "./product-detail.css";
 import "./account.css";
-
-import Link from "next/link";
+import "./home.css";
 
 import { CartProvider } from "../components/cart-context";
 import { AuthProvider } from "../components/auth-context";
 
-import CartLink from "../components/cart-link";
-import AccountLink from "../components/account-link";
-
+import SiteHeader from "../components/site-header";
 import StoreFooter from "../components/store-footer";
 
 export const metadata = {
   title: "فروشگاه چرم",
-  description: "محصولات چرمی و سبد خرید",
+  description: "فروشگاه محصولات چرمی",
 };
 
 export default function Layout({ children }) {
@@ -22,18 +20,7 @@ export default function Layout({ children }) {
       <body>
         <AuthProvider>
           <CartProvider>
-            <header>
-              <Link className="brand" href="/">
-                چرم
-                <span>ساخته برای ماندن</span>
-              </Link>
-
-              <nav>
-                <Link href="/">محصولات</Link>
-                <CartLink />
-                <AccountLink />
-              </nav>
-            </header>
+            <SiteHeader />
 
             <main>{children}</main>
 

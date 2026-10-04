@@ -8,14 +8,8 @@ import { money, imageUrl } from "../../lib/api";
 import CheckoutButton from "../../components/checkout-button";
 
 export default function CartPage() {
-  const {
-    cart,
-    error,
-    busy,
-    remove,
-    refresh,
-    update,
-  } = useCart();
+  const { cart, error, busy, remove, refresh, update } =
+    useCart();
 
   return (
     <>
@@ -27,19 +21,35 @@ export default function CartPage() {
       {error && (
         <p className="error" role="alert">
           {error}
+          {" "}
 
-          <button
-            onClick={() => refresh().catch(() => {})}
-          >
+          <button onClick={() => refresh().catch(() => {})}>
             تلاش دوباره
           </button>
         </p>
       )}
 
-      {cart?.unavailable_items?.length > 0 && <div className="error" role="alert">
-        <p>برخی اقلام دیگر قابل خرید نیستند. آن‌ها را از سبد حذف کنید.</p>
-        {cart.unavailable_items.map(key => <button key={key} disabled={busy} onClick={() => remove(Number(key.split(":")[1])).catch(() => {})}>حذف قلم ناموجود {key}</button>)}
-      </div>}
+      {cart?.unavailable_items?.length > 0 && (
+        <div className="error" role="alert">
+          <p>
+            برخی اقلام دیگر قابل خرید نیستند.
+            آن‌ها را از سبد حذف کنید.
+          </p>
+
+          {cart.unavailable_items.map((key) => (
+            <button
+              key={key}
+              disabled={busy}
+              onClick={() =>
+                remove(Number(key.split(":")[1]))
+                  .catch(() => {})
+              }
+            >
+              حذف قلم ناموجود {key}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!cart ? (
         <p>در حال دریافت سبد خرید…</p>
@@ -67,7 +77,7 @@ export default function CartPage() {
 
                 <div>
                   <h2>{item.name}</h2>
-                  <p>{[item.color, item.size].filter(Boolean).join(" / ")}</p>
+                  <p>{item.color}</p>
 
                   <p>
                     تعداد: {money(item.quantity)}
@@ -116,7 +126,7 @@ export default function CartPage() {
               {money(
                 cart.total_quantity ??
                   cart.items.reduce(
-                    (sum, item) => sum + item.quantity,
+                    (sum, item) => sum + Number(item.quantity),
                     0
                   )
               )}
@@ -140,9 +150,7 @@ export default function CartPage() {
 
             <CheckoutButton disabled={busy} />
 
-            <Link href="/">
-              بازگشت به محصولات ←
-            </Link>
+            <Link href="/">بازگشت به محصولات ←</Link>
           </aside>
         </div>
       )}
@@ -164,7 +172,7 @@ function QuantityEditor({ item, update, busy }) {
   async function submit(event) {
     event.preventDefault();
 
-    if (!valid) return;
+    if (!valid || busy) return;
 
     setError("");
 
@@ -186,9 +194,7 @@ function QuantityEditor({ item, update, busy }) {
           step="1"
           value={quantity}
           disabled={busy}
-          onChange={(event) =>
-            setQuantity(event.target.value)
-          }
+          onChange={(event) => setQuantity(event.target.value)}
         />
 
         <button
@@ -209,4 +215,3 @@ function QuantityEditor({ item, update, busy }) {
     </div>
   );
 }
-

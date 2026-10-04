@@ -58,7 +58,6 @@ function CategoryBranch({
 
   return (
     <div className="category-column">
-      {/* تصویر و عنوان فقط نمایش داده می‌شوند */}
       <div className="category-menu-card">
         <CategoryImage
           image={category.image}
@@ -70,7 +69,6 @@ function CategoryBranch({
         </h3>
       </div>
 
-      {/* تمام زیرمجموعه‌ها بدون عکس و به صورت نام قابل کلیک */}
       {descendants.length > 0 && (
         <ul className="category-text-list">
           {descendants.map((child) => (
@@ -130,7 +128,8 @@ export default function CategoryMenu({
         if (!active) return;
 
         setError(
-          err.message || "دریافت دسته‌بندی‌ها ناموفق بود."
+          err.message ||
+            "دریافت دسته‌بندی‌ها ناموفق بود."
         );
       })
       .finally(() => {
@@ -164,7 +163,10 @@ export default function CategoryMenu({
       handleOutsideClick
     );
 
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener(
+      "keydown",
+      handleEscape
+    );
 
     return () => {
       document.removeEventListener(
@@ -333,7 +335,6 @@ export default function CategoryMenu({
                   </button>
                 </div>
 
-               
                 <div className="category-menu-grid">
                   {group.children.map((category) => (
                     <CategoryBranch

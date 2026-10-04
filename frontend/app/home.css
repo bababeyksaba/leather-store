@@ -1,0 +1,708 @@
+/* رنگ‌های صفحه */
+
+:root {
+  --brick: #bd7b62;
+  --brick-dark: #a6654e;
+}
+
+/* سربرگ */
+
+.boutique-header {
+  max-width: none;
+  padding-block: 16px;
+  gap: 24px;
+}
+
+.boutique-header .brand {
+  font-size: 34px;
+  flex-shrink: 0;
+}
+
+.boutique-header .brand span {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.boutique-header .category-menu {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}
+
+.boutique-header .category-menu-bar {
+  padding: 0;
+  gap: 8px;
+}
+
+.boutique-header .category-menu-trigger {
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.boutique-header .category-menu-panel {
+  min-width: min(760px, 90vw);
+  inset-inline-start: 50%;
+  inset-inline-end: auto;
+  transform: translateX(50%);
+  box-shadow: 0 12px 30px #00000012;
+}
+
+.boutique-header .boutique-account-nav {
+  flex-shrink: 0;
+  gap: 18px;
+}
+
+.boutique-header .cart-link b {
+  background: var(--brick);
+  color: white;
+  padding: 0 7px;
+  border-radius: 30px;
+}
+
+.boutique-heart {
+  display: inline-flex;
+}
+
+/* بنر اصلی */
+
+.boutique-home {
+  color: #241b17;
+}
+
+.boutique-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.boutique-main-banner,
+.boutique-small-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #eee5db;
+}
+
+.boutique-main-banner {
+  min-height: 620px;
+}
+
+.boutique-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.boutique-main-banner > img {
+  position: absolute;
+  inset: 0;
+}
+
+.boutique-hero-copy {
+  position: relative;
+  z-index: 1;
+  padding: 42px 36px;
+  text-align: center;
+  background: linear-gradient(
+    #f5ecdfbc,
+    transparent
+  );
+}
+
+.boutique-hero-copy h1 {
+  font-size: clamp(30px, 3.8vw, 52px);
+  margin: 4px 0 14px;
+}
+
+.boutique-hero-copy p {
+  margin-bottom: 14px;
+}
+
+.boutique-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 24px;
+  background: var(--brick);
+  color: white;
+  border-radius: 6px;
+}
+
+.boutique-cta:hover {
+  background: var(--brick-dark);
+}
+
+/* دو بنر کوچک */
+
+.boutique-side-banners {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+}
+
+.boutique-small-banner img {
+  position: absolute;
+  inset: 0;
+}
+
+.boutique-small-banner > div {
+  position: relative;
+  z-index: 1;
+  padding: 26px;
+  color: white;
+  text-align: left;
+  min-height: 100%;
+  background: linear-gradient(
+    to right,
+    #20191080,
+    transparent
+  );
+}
+
+.boutique-small-banner h2 {
+  font-size: 23px;
+  max-width: 180px;
+  margin-inline-start: auto;
+}
+
+.boutique-small-banner span {
+  display: block;
+  margin-top: 28px;
+  font-size: 13px;
+}
+
+/* دسته‌بندی‌های تصویری */
+
+.boutique-categories {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0 44px;
+}
+
+.boutique-categories button {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #f0eae4;
+  border-radius: 10px;
+  background: #f8f5f1;
+  color: #241b17;
+  text-align: right;
+}
+
+.boutique-categories button:hover:not(:disabled) {
+  background: #efe6dd;
+}
+
+.boutique-categories h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.boutique-categories button span {
+  color: var(--brick-dark);
+  font-size: 12px;
+}
+
+.boutique-categories img {
+  width: 84px;
+  height: 100px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.boutique-category-symbol {
+  font-size: 40px !important;
+  padding-inline: 12px;
+}
+
+/* عنوان فهرست محصولات */
+
+.boutique-catalog {
+  scroll-margin-top: 25px;
+}
+
+.boutique-section-title {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 35px 0 20px;
+}
+
+.boutique-section-title h2 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.boutique-section-title > span {
+  flex: 1;
+  height: 1px;
+  background: #e8e0d9;
+}
+
+.boutique-section-title button {
+  background: transparent;
+  border: 0;
+  color: var(--brick-dark);
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.boutique-section-title button:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+/* فیلترها */
+
+.boutique-filter-panel {
+  border: 1px solid #eee6df;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.boutique-filter-panel summary {
+  cursor: pointer;
+}
+
+.boutique-filter-panel .catalog-filters {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+.boutique-home .catalog-filters button[type="submit"],
+.boutique-home .selected-category button,
+.boutique-home .pagination button,
+.boutique-home .luxury-buy {
+  background: var(--brick);
+  border-color: var(--brick);
+  color: white;
+}
+
+.boutique-home .catalog-filters button[type="submit"]:hover,
+.boutique-home .selected-category button:hover,
+.boutique-home .pagination button:hover:not(:disabled),
+.boutique-home .luxury-buy:hover:not(:disabled) {
+  background: var(--brick-dark);
+  border-color: var(--brick-dark);
+}
+
+/* کارت محصولات */
+
+.boutique-home .luxury-products {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.boutique-home .luxury-card {
+  border: 1px solid #e9e2dc;
+  box-shadow: none;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 5px;
+  min-width: 0;
+}
+
+.boutique-home .luxury-card:hover {
+  box-shadow: 0 10px 28px #53332112;
+  transform: translateY(-3px);
+}
+
+.boutique-home .luxury-card .photo {
+  aspect-ratio: 1 / 1.05;
+  height: auto;
+  background: #f7f2ec;
+  border-radius: 7px;
+}
+
+.boutique-home .luxury-card .photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.boutique-home .product-body {
+  padding: 12px 9px;
+}
+
+.boutique-home .luxury-title-row h2 {
+  font-size: 15px;
+}
+
+.boutique-home .luxury-material {
+  display: none;
+}
+
+.boutique-home .luxury-rating-palette {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.boutique-home .luxury-rating {
+  font-size: 12px;
+}
+
+.boutique-home .luxury-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.boutique-home .luxury-bottom .card-price {
+  margin: 0;
+  font-size: 17px;
+}
+
+.boutique-home .luxury-buy {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+/* تبلت */
+
+@media (max-width: 1050px) {
+  .boutique-header {
+    flex-wrap: wrap;
+  }
+
+  .boutique-header .category-menu {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .boutique-header .boutique-account-nav {
+    margin-inline-start: auto;
+  }
+
+  .boutique-main-banner {
+    min-height: 530px;
+  }
+
+  .boutique-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .boutique-home .luxury-products {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* موبایل */
+
+@media (max-width: 700px) {
+  .boutique-header {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .boutique-header .brand {
+    font-size: 28px;
+  }
+
+  .boutique-header .boutique-account-nav {
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .boutique-header .category-menu-panel {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    max-height: 65vh;
+    overflow: auto;
+  }
+
+  .boutique-header .category-menu-bar {
+    gap: 0;
+  }
+
+  .boutique-header .category-menu-trigger {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .boutique-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .boutique-main-banner {
+    min-height: 460px;
+  }
+
+  .boutique-hero-copy {
+    padding: 24px 18px;
+  }
+
+  .boutique-hero-copy h1 {
+    font-size: 33px;
+  }
+
+  .boutique-side-banners {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    gap: 10px;
+  }
+
+  .boutique-small-banner {
+    min-height: 230px;
+  }
+
+  .boutique-small-banner > div {
+    padding: 16px 12px;
+  }
+
+  .boutique-small-banner h2 {
+    font-size: 17px;
+  }
+
+  .boutique-small-banner p,
+  .boutique-small-banner span {
+    font-size: 11px;
+  }
+
+  .boutique-categories {
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .boutique-categories button {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .boutique-categories h2 {
+    font-size: 13px;
+  }
+
+  .boutique-categories img {
+    width: 60px;
+    height: 75px;
+  }
+
+  .boutique-section-title {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .boutique-section-title h2 {
+    font-size: 20px;
+  }
+
+  .boutique-section-title button {
+    font-size: 11px;
+  }
+
+  .boutique-home .luxury-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .boutique-home .product-body {
+    padding: 10px 5px;
+  }
+
+  .boutique-home .luxury-title-row h2 {
+    font-size: 13px;
+  }
+
+  .boutique-home .luxury-bottom .card-price {
+    font-size: 14px;
+  }
+
+  .boutique-home .luxury-buy {
+    width: 100%;
+  }
+
+  .boutique-home .luxury-rating small {
+    font-size: 10px;
+  }
+
+  .boutique-home .luxury-swatch {
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boutique-home .luxury-card,
+  .boutique-home .luxury-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+/* منوی وسط و آیکون‌های هدر */
+
+header.boutique-header {
+  display: grid;
+  grid-template-columns:
+    minmax(100px, 1fr)
+    minmax(0, auto)
+    minmax(100px, 1fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.boutique-header .brand {
+  justify-self: start;
+}
+
+.boutique-header .category-menu {
+  width: 100%;
+  margin: 0;
+  order: initial;
+}
+
+.boutique-header .category-menu-bar {
+  justify-content: center;
+}
+
+.boutique-header .boutique-account-nav {
+  justify-self: end;
+  margin: 0;
+  gap: 12px;
+}
+
+.boutique-header .header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #241b17;
+}
+
+.boutique-header .header-icon:hover {
+  background: #f7eee8;
+  color: var(--brick-dark);
+  text-decoration: none;
+}
+
+/* موبایل و تبلت */
+
+@media (max-width: 900px) {
+  header.boutique-header {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .boutique-header .brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .boutique-header .boutique-account-nav {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .boutique-header .category-menu {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .boutique-header .category-menu-bar {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+.boutique-hero .boutique-cta {
+  min-height: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+
+.boutique-hero .boutique-cta:hover {
+  background: transparent;
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.boutique-hero .boutique-cta:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 6px;
+}
+
+/* دسته‌بندی‌ها با تصویر تمام‌باکس */
+
+.boutique-categories button {
+  position: relative;
+  display: block;
+  height: 180px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: #eee5db;
+}
+
+.boutique-categories button img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.boutique-categories button > div {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 18px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.55),
+    transparent 75%
+  );
+  text-align: right;
+}
+
+.boutique-categories button h2 {
+  margin: 0 0 5px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.boutique-categories button > div span {
+  color: #fff;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .boutique-categories button {
+    height: 140px;
+  }
+
+  .boutique-categories button > div {
+    padding: 12px;
+  }
+
+  .boutique-categories button h2 {
+    font-size: 13px;
+  }
+}

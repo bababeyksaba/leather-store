@@ -8,9 +8,7 @@ import { useCart } from "./cart-context";
 import OrderFulfillment from "./order-fulfillment";
 
 function isExpired(order, now) {
-  if (order.status === "expired") {
-    return true;
-  }
+  if (order.status === "expired") return true;
 
   if (order.status !== "pending" || !order.expires_at) {
     return false;
@@ -31,6 +29,12 @@ export default function OrdersPanel() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     setError("");
@@ -42,28 +46,15 @@ export default function OrdersPanel() {
         setOrders(
           Array.isArray(data) ? data : data.results ?? []
         );
-
-        setNow(Date.now());
       })
       .catch((err) => {
-        if (active) {
-          setError(err.message);
-        }
+        if (active) setError(err.message);
       });
 
     return () => {
       active = false;
     };
   }, [retry]);
-
-  // حتی اگر صفحه باز بماند، سفارش منقضی‌شده پنهان می‌شود.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   async function cancel(number) {
     if (busy) return;
@@ -78,7 +69,6 @@ export default function OrdersPanel() {
       );
 
       await refresh();
-
       setRetry((value) => value + 1);
     } catch (err) {
       setError(err.message);
@@ -87,7 +77,7 @@ export default function OrdersPanel() {
     }
   }
 
-  const visibleOrders = (orders ?? []).filter(
+  const visibleOrders = (orders || []).filter(
     (order) => !isExpired(order, now)
   );
 
@@ -98,7 +88,6 @@ export default function OrdersPanel() {
       <p>پرداخت‌های این نسخه آزمایشی هستند.</p>
 
       <button
-        type="button"
         disabled={busy}
         onClick={() => setRetry((value) => value + 1)}
       >
@@ -108,9 +97,10 @@ export default function OrdersPanel() {
       {error && (
         <p className="error" role="alert">
           {error}
+          {" "}
 
           <button
-            type="button"
+            disabled={busy}
             onClick={() => setRetry((value) => value + 1)}
           >
             تلاش دوباره
@@ -118,19 +108,10 @@ export default function OrdersPanel() {
         </p>
       )}
 
-      {orders === null ? (
+      {!orders ? (
         <p>در حال دریافت سفارش‌ها…</p>
-      ) : visibleOrders.length === 0 ? (
-        <div className="empty">
-          <h3>سفارشی برای نمایش وجود ندارد.</h3>
-
-          <p>
-            سفارش‌هایی که مهلت پرداختشان تمام شده است،
-            در این بخش نمایش داده نمی‌شوند.
-          </p>
-
-          <Link href="/">مشاهدهٔ محصولات</Link>
-        </div>
+      ) : !visibleOrders.length ? (
+        <p>سفارشی برای نمایش وجود ندارد.</p>
       ) : (
         visibleOrders.map((order) => (
           <article
@@ -142,32 +123,17 @@ export default function OrdersPanel() {
             <h3>{order.status_label}</h3>
 
             <p>
-              {new Date(order.created_at).toLocaleString(
-                "fa-IR"
-              )}
+              {new Date(order.created_at)
+                .toLocaleString("fa-IR")}
             </p>
 
             <p>مبلغ نهایی: {money(order.total)}</p>
 
-            {order.status === "pending" &&
-              order.expires_at && (
-                <p>
-                  مهلت پرداخت:{" "}
-                  {new Date(
-                    order.expires_at
-                  ).toLocaleString("fa-IR")}
-                </p>
-              )}
-
             <OrderFulfillment order={order} />
 
-            {(order.items ?? []).map((item) => (
+            {(order.items || []).map((item) => (
               <p key={item.id || item.cart_key}>
-                {item.name}
-                {" "}
-                {[item.color, item.size]
-                  .filter(Boolean)
-                  .join(" / ")}
+                {item.name} {item.color}
                 {" · "}
                 {money(item.quantity)} عدد
               </p>
@@ -184,11 +150,10 @@ export default function OrdersPanel() {
             {order.status === "pending" && (
               <p>
                 <button
-                  type="button"
                   disabled={busy}
                   onClick={() => cancel(order.number)}
                 >
-                  {busy ? "در حال ثبت…" : "لغو سفارش"}
+                  لغو سفارش
                 </button>
               </p>
             )}

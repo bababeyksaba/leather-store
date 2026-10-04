@@ -4,12 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  api,
-  accountMutation,
-  money,
-} from "../../../lib/api";
-
+import { api, accountMutation, money } from "../../../lib/api";
 import { useAuth } from "../../../components/auth-context";
 import { useCart } from "../../../components/cart-context";
 import OrderFulfillment from "../../../components/order-fulfillment";
@@ -56,6 +51,8 @@ export default function TestPaymentPage({ params }) {
   }, [number, refreshAuth, router, retry]);
 
   async function action(path) {
+    if (busy) return;
+
     setBusy(true);
     setError("");
 
@@ -84,7 +81,8 @@ export default function TestPaymentPage({ params }) {
       <h1>پرداخت آزمایشی</h1>
 
       <p className="account-note">
-        این صفحه درگاه بانکی نیست. هیچ پولی جابه‌جا نمی‌شود.
+        این صفحه درگاه بانکی نیست.
+        هیچ پولی جابه‌جا نمی‌شود.
       </p>
 
       <button
@@ -97,6 +95,7 @@ export default function TestPaymentPage({ params }) {
       {error && (
         <p className="error" role="alert">
           {error}
+          {" "}
 
           <button
             disabled={busy}
@@ -135,10 +134,12 @@ export default function TestPaymentPage({ params }) {
 
           <OrderFulfillment order={order} />
 
-          {order.items.map((item) => (
+          {(order.items || []).map((item) => (
             <p key={item.id || item.cart_key}>
-              {item.name} {[item.color, item.size].filter(Boolean).join(" / ")} · {money(item.quantity)} عدد ·
-              {" "}
+              {item.name} {item.color}
+              {" · "}
+              {money(item.quantity)} عدد
+              {" · "}
               {money(item.item_total)}
             </p>
           ))}
@@ -148,9 +149,8 @@ export default function TestPaymentPage({ params }) {
               <p>
                 مهلت پرداخت:
                 {" "}
-                {new Date(order.expires_at).toLocaleString(
-                  "fa-IR"
-                )}
+                {new Date(order.expires_at)
+                  .toLocaleString("fa-IR")}
               </p>
 
               <button
@@ -175,16 +175,15 @@ export default function TestPaymentPage({ params }) {
 
           {order.status === "paid" && (
             <p className="success">
-              پرداخت آزمایشی موفق بود. این سفارش در بخش
-              سفارشات حساب شما ثبت شده است.
+              پرداخت آزمایشی موفق بود.
+              این سفارش در بخش سفارشات حساب شما ثبت شده است.
             </p>
           )}
 
-          {(order.status === "cancelled" ||
-            order.status === "expired") && (
+          {["cancelled", "expired"].includes(order.status) && (
             <p>
-              موجودی رزروشده آزاد شده است؛ می‌توانید دوباره
-              سفارش بدهید.
+              موجودی رزروشده آزاد شده است؛
+              می‌توانید دوباره سفارش بدهید.
             </p>
           )}
 
@@ -200,4 +199,3 @@ export default function TestPaymentPage({ params }) {
     </section>
   );
 }
-

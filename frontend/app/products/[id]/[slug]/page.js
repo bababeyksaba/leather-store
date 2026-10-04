@@ -1,20 +1,12 @@
 "use client";
 
-import PriceUnit from "../../../../components/price-unit";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-import {
-  api,
-  money,
-  imageUrl,
-} from "../../../../lib/api";
-
+import { api, money, imageUrl } from "../../../../lib/api";
 import { useCart } from "../../../../components/cart-context";
-
-
-import VariantPicker from "../../../../components/variant-picker";
+import PriceUnit from "../../../../components/price-unit";
 import ReviewForm from "../../../../components/review-form";
 import FavoriteButton from "../../../../components/favorite-button";
 
@@ -71,96 +63,95 @@ export default function ProductPage() {
     <ProductDetails
       key={product.id}
       product={product}
-      onReload={() => setRetry(v => v + 1)}
+      onReload={() => setRetry((value) => value + 1)}
     />
   );
 }
 
-
 function ProductDetails({ product, onReload }) {
   const { add, busy, cart } = useCart();
   const variants = product.variants || [];
-  const [variantId, setVariantId] = useState(variants.find(v => v.stock > 0)?.id ?? variants[0]?.id);
-  const variant = variants.find(v => v.id === variantId);
-  const inCart = cart?.items?.find(i => i.variant_id === variantId)?.quantity || 0;
+
+  const [variantId, setVariantId] = useState(
+    variants.find((variant) => variant.stock > 0)?.id ??
+      variants[0]?.id
+  );
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [activeTab, setActiveTab] = useState("description");
+  const [failedImages, setFailedImages] = useState([]);
+  const [tab, setTab] = useState("description");
   const [zoom, setZoom] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const gallery = Array.isArray(product.images)
-    ? product.images.map((item) =>
-        typeof item === "string"
-          ? item
-          : item?.image || item?.url
-      )
-    : [];
+  const variant = variants.find((item) => item.id === variantId);
 
   const images = [
     ...new Set(
-      [variant?.image, product.image, ...gallery].filter(
-        (value) => typeof value === "string" && value
-      )
+      [
+        variant?.image,
+        product.image,
+        ...(product.images || []).map((item) =>
+          typeof item === "string" ? item : item.image
+        ),
+      ].filter(Boolean)
     ),
   ];
 
-  const reviews = Array.isArray(product.reviews)
-    ? product.reviews
-    : [];
+  const currentImage = images[selectedImage] || images[0];
+  const reviews = product.reviews || [];
 
+  const rating = product.average_rating;
   const reviewCount = product.review_count ?? reviews.length;
 
-  const averageRating =
-    product.average_rating ??
-    (reviews.length
-      ? reviews.reduce(
-          (sum, review) => sum + Number(review.rating || 0),
-          0
-        ) / reviews.length
-      : null);
+  const ratingText =
+    rating == null
+      ? "بدون امتیاز"
+      : `${money(Number(rating).toFixed(1))} از ۵`;
 
-  const category =
-    product.category_name ||
-    product.category?.name ||
-    "محصول چرمی";
+  const inCart =
+    cart?.items?.find((item) => item.variant_id === variantId)
+      ?.quantity || 0;
+
+  const maxQuantity = Math.max(
+    0,
+    Math.min(
+      (variant?.stock || 0) - inCart,
+      10000 - inCart
+    )
+  );
 
   const value = Number(quantity);
-  const maxQuantity = Math.max(0, Math.min((variant?.stock || 0) - inCart, 10000 - inCart));
-
-  const available =
-    variant?.stock > 0 &&
-    product.is_active !== false;
 
   const validQuantity =
     Number.isInteger(value) &&
     value >= 1 &&
     value <= maxQuantity;
 
+  const available =
+    variant?.stock > 0 && product.is_active !== false;
+
   const specifications = [
     ["جنس", product.material],
     ["رنگ", variant?.color],
     ["ابعاد", product.dimensions],
-    ["اندازه", variant?.size],
     ["کد محصول", variant?.sku || product.sku],
   ];
 
-  const tabs = [
-    ["description", "توضیحات محصول"],
-    ["specs", "مشخصات و اندازه"],
-    ["care", "نحوهٔ نگهداری"],
-    
-  ];
+  const buyLabel = busy
+    ? "در حال ثبت…"
+    : !available
+      ? "ناموجود"
+      : maxQuantity === 0
+        ? "تمام موجودی در سبد شماست"
+        : "افزودن به سبد خرید";
 
   useEffect(() => {
     if (!zoom) return;
 
     function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        setZoom(false);
-      }
+      if (event.key === "Escape") setZoom(false);
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -170,13 +161,13 @@ function ProductDetails({ product, onReload }) {
     };
   }, [zoom]);
 
-  async function handleAddToCart(event) {
+  async function handleAdd(event) {
     event.preventDefault();
 
-    if (!available || !validQuantity || busy) return;
+    if (!validQuantity || !available || busy) return;
 
-    setNotice("");
     setError("");
+    setNotice("");
 
     try {
       await add(product.id, value, variantId);
@@ -186,322 +177,385 @@ function ProductDetails({ product, onReload }) {
     }
   }
 
-  return (
-    <div className="product-detail">
-      <nav className="breadcrumbs" aria-label="مسیر صفحه">
-        <Link href="/">محصولات</Link>
-        <span>/</span>
-        <span>{category}</span>
-        <span>/</span>
-        <span>{product.name}</span>
-      </nav>
+  function selectColor(color) {
+    const choices = variants.filter(
+      (item) => item.color === color
+    );
 
-      <div className="detail-grid">
-        <section
-          className="gallery"
-          aria-label="گالری تصاویر محصول"
+    const selected =
+      choices.find((item) => item.stock > 0) || choices[0];
+
+    if (!selected) return;
+
+    setVariantId(selected.id);
+    setQuantity(1);
+    setSelectedImage(0);
+    setError("");
+    setNotice("");
+  }
+
+  function renderQuantityControl(suffix) {
+    return (
+      <div className="pd-quantity" dir="ltr">
+        <button
+          type="button"
+          aria-label="کاهش تعداد"
+          disabled={busy || value <= 1}
+          onClick={() => setQuantity(Math.max(1, value - 1))}
         >
-          <div className="gallery-main">
-            {images.length > 0 ? (
+          −
+        </button>
+
+        <input
+          id={`pd-quantity-${suffix}`}
+          aria-label="تعداد محصول"
+          type="number"
+          min="1"
+          max={maxQuantity || 1}
+          step="1"
+          value={quantity}
+          disabled={busy || !available}
+          onChange={(event) => setQuantity(event.target.value)}
+        />
+
+        <button
+          type="button"
+          aria-label="افزایش تعداد"
+          disabled={
+            busy ||
+            !available ||
+            !validQuantity ||
+            value >= maxQuantity
+          }
+          onClick={() => setQuantity(value + 1)}
+        >
+          +
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pd-page">
+      <div className="pd-top">
+        <section
+          className="pd-gallery"
+          aria-label="گالری محصول"
+        >
+          <div className="pd-thumbs">
+            {images.map((image, index) => (
+              <button
+                key={image}
+                type="button"
+                aria-label={`تصویر ${index + 1}`}
+                aria-pressed={selectedImage === index}
+                onClick={() => setSelectedImage(index)}
+              >
+                <img src={imageUrl(image)} alt="" />
+              </button>
+            ))}
+          </div>
+
+          <div className="pd-main-photo">
+            <FavoriteButton productId={product.id} compact />
+
+            {currentImage &&
+            !failedImages.includes(currentImage) ? (
               <button
                 type="button"
-                className="image-open"
-                aria-label="نمایش بزرگ تصویر"
+                className="pd-image-open"
+                aria-label="بزرگ‌نمایی تصویر محصول"
                 onClick={() => setZoom(true)}
               >
                 <img
-                  src={imageUrl(images[selectedImage])}
-                  alt={`${product.name}، تصویر ${selectedImage + 1}`}
+                  src={imageUrl(currentImage)}
+                  alt={product.name}
+                  onError={() =>
+                    setFailedImages((items) => [
+                      ...items,
+                      currentImage,
+                    ])
+                  }
                 />
-
-                <span>برای بزرگ‌نمایی کلیک کنید ↗</span>
               </button>
             ) : (
-              <p className="image-placeholder">
-                تصویر این محصول ثبت نشده است.
-              </p>
+              <span className="pd-placeholder">
+                تصویر محصول در دسترس نیست
+              </span>
             )}
           </div>
-
-          {images.length > 1 && (
-            <div className="thumbnails">
-              {images.map((image, index) => (
-                <button
-                  key={image}
-                  type="button"
-                  aria-label={`نمایش تصویر ${index + 1}`}
-                  aria-pressed={selectedImage === index}
-                  onClick={() => setSelectedImage(index)}
-                >
-                  <img src={imageUrl(image)} alt="" />
-                </button>
-              ))}
-            </div>
-          )}
         </section>
 
-        <section className="detail-info">
-          <p className="eyebrow">{category}</p>
-
-          <h1>{product.name}</h1>
-
-          <a
-            href="#product-reviews"
-            className="rating-line"
+        <div className="pd-summary-column">
+          <nav
+            className="pd-breadcrumbs"
+            aria-label="مسیر صفحه"
           >
-            <span aria-hidden="true">★</span>
+            <Link href="/">خانه</Link>
+            <span>‹</span>
+            <span>{product.category_name || "محصولات"}</span>
+            <span>‹</span>
+            <span>{product.name}</span>
+          </nav>
 
-            {averageRating == null
-              ? "هنوز امتیازی ثبت نشده"
-              : `${money(Number(averageRating).toFixed(1))} از ۵`}
+          <section className="pd-summary">
+            <h1>{product.name}</h1>
 
-            <small>· {money(reviewCount)} نظر</small>
-          </a>
+            <a
+              className="pd-rating"
+              href="#product-reviews"
+            >
+              {ratingText}
+              {" "}
+              <small>({money(reviewCount)} امتیاز)</small>
+            </a>
 
-          <div className="detail-price">
-            {money(variant?.price ?? product.price)}
-            <small><PriceUnit /></small>
-          </div>
-
-          <p className="availability">
-            {available
-              ? `موجود · ${money(variant?.stock ?? 0)} عدد`
-              : "ناموجود"}
-          </p>
-
-          {product.description && (
-            <p className="detail-intro">
-              {product.description}
+            <p className="pd-intro">
+              {product.description ||
+                "توضیحات این محصول هنوز ثبت نشده است."}
             </p>
-          )}
 
-          <VariantPicker variants={variants} value={variantId} disabled={busy} onChange={id => { setVariantId(id); setQuantity(1); setSelectedImage(0); }} />
-          {inCart > 0 && <p className="in-cart-count">{money(inCart)} عدد از این رنگ و سایز در سبد شماست.</p>}
-          <FavoriteButton productId={product.id} />
-          <form
-            className="purchase-form"
-            onSubmit={handleAddToCart}
-          >
-            <label htmlFor="product-quantity">
-              تعداد
-            </label>
+            <div className="pd-colors">
+              <strong>
+                رنگ
+                {variant?.color ? `: ${variant.color}` : ""}
+              </strong>
 
-            <div className="purchase-row">
-              <div className="quantity-control">
-                <button
-                  type="button"
-                  aria-label="کاهش تعداد"
-                  disabled={
-                    busy ||
-                    !available ||
-                    !validQuantity ||
-                    value <= 1
-                  }
-                  onClick={() => setQuantity(value - 1)}
-                >
-                  −
-                </button>
+              <div>
+                {[...new Set(variants.map((item) => item.color))]
+                  .map((color) => {
+                    const choices = variants.filter(
+                      (item) => item.color === color
+                    );
 
-                <input
-                  id="product-quantity"
-                  type="number"
-                  min="1"
-                  max={maxQuantity}
-                  step="1"
-                  required
-                  value={quantity}
-                  disabled={busy || !available}
-                  onChange={(event) =>
-                    setQuantity(event.target.value)
-                  }
-                />
+                    const option =
+                      choices.find((item) => item.stock > 0) ||
+                      choices[0];
 
-                <button
-                  type="button"
-                  aria-label="افزایش تعداد"
-                  disabled={
-                    busy ||
-                    !available ||
-                    !validQuantity ||
-                    value >= maxQuantity
-                  }
-                  onClick={() => setQuantity(value + 1)}
-                >
-                  +
-                </button>
+                    const hex = /^#[0-9a-f]{6}$/i.test(
+                      option.color_hex || ""
+                    )
+                      ? option.color_hex
+                      : "#ddd";
+
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        className="pd-swatch"
+                        style={{ "--swatch": hex }}
+                        aria-label={color || "رنگ اصلی"}
+                        title={color || "رنگ اصلی"}
+                        aria-pressed={variant?.color === color}
+                        disabled={busy}
+                        onClick={() => selectColor(color)}
+                      />
+                    );
+                  })}
+              </div>
+            </div>
+
+            <form onSubmit={handleAdd}>
+              <div className="pd-purchase-line">
+                <div>
+                  <label htmlFor="pd-quantity-main">
+                    تعداد
+                  </label>
+
+                  {renderQuantityControl("main")}
+                </div>
+
+                <strong className="pd-price">
+                  {money(variant?.price ?? product.price)}
+                  {" "}
+                  <small><PriceUnit /></small>
+                </strong>
               </div>
 
               <button
                 type="submit"
-                className="add-to-cart"
-                disabled={
-                  busy || !available || !validQuantity
-                }
+                className="pd-buy"
+                disabled={busy || !available || !validQuantity}
               >
-                {busy
-                  ? "در حال ثبت…"
-                  : available
-                    ? "افزودن به سبد خرید"
-                    : "ناموجود"}
+                {buyLabel}
               </button>
+            </form>
+
+            {inCart > 0 && (
+              <p className="pd-muted">
+                {money(inCart)} عدد از این رنگ در سبد شماست.
+              </p>
+            )}
+
+            <div aria-live="polite">
+              {notice && (
+                <p className="success">
+                  {notice}
+                  {" "}
+                  <Link href="/cart">مشاهدهٔ سبد</Link>
+                </p>
+              )}
+
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
             </div>
-          </form>
+          </section>
+        </div>
+      </div>
 
-          <div aria-live="polite">
-            {notice && (
-              <p className="success">
-                {notice}
-                {" "}
-                <Link href="/cart">
-                  مشاهدهٔ سبد ←
-                </Link>
-              </p>
-            )}
-
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
+      <div className="pd-bottom">
+        <section className="pd-information">
+          <div
+            className="pd-tabs"
+            role="tablist"
+            aria-label="اطلاعات محصول"
+          >
+            {[
+              ["description", "توضیحات محصول"],
+              ["care", "نحوهٔ نگهداری"],
+            ].map(([key, title]) => (
+              <button
+                type="button"
+                key={key}
+                id={`pd-tab-${key}`}
+                role="tab"
+                aria-selected={tab === key}
+                aria-controls="pd-panel"
+                onClick={() => setTab(key)}
+              >
+                {title}
+              </button>
+            ))}
           </div>
 
-          {product.sku && (
-            <p className="sku">
-              شناسهٔ محصول: <b>{product.sku}</b>
+          <div
+            id="pd-panel"
+            role="tabpanel"
+            aria-labelledby={`pd-tab-${tab}`}
+            className="pd-panel"
+          >
+            <p className="preserve-lines">
+              {tab === "description"
+                ? product.description ||
+                  "توضیحات ثبت نشده است."
+                : product.care_instructions ||
+                  "راهنمای نگهداری ثبت نشده است."}
+            </p>
+          </div>
+
+          <div className="pd-specs">
+            <h2>مشخصات</h2>
+
+            <dl>
+              {specifications
+                .filter(([, text]) => text)
+                .map(([label, text]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{text}</dd>
+                  </div>
+                ))}
+            </dl>
+          </div>
+        </section>
+
+        <section
+          id="product-reviews"
+          className="pd-reviews"
+        >
+          <div className="pd-reviews-title">
+            <h2>نظرات و امتیازها</h2>
+
+            <span>
+              {ratingText}
+              {" "}
+              <small>({money(reviewCount)} امتیاز)</small>
+            </span>
+          </div>
+
+          {reviews.length ? (
+            reviews.map((review) => {
+              const author =
+                typeof review.author === "string"
+                  ? review.author
+                  : review.author_name || "کاربر";
+
+              return (
+                <article
+                  className="pd-review"
+                  key={review.id}
+                >
+                  <div className="pd-review-heading">
+                    <span
+                      className="pd-avatar"
+                      aria-hidden="true"
+                    >
+                      {author.slice(0, 1)}
+                    </span>
+
+                    <div>
+                      <strong>{author}</strong>
+
+                      {review.created_at && (
+                        <time dateTime={review.created_at}>
+                          {new Date(
+                            review.created_at
+                          ).toLocaleDateString("fa-IR")}
+                        </time>
+                      )}
+                    </div>
+
+                    <span>{money(review.rating)} از ۵</span>
+                  </div>
+
+                  {review.title && <h3>{review.title}</h3>}
+
+                  <p className="preserve-lines">
+                    {review.comment || review.text}
+                  </p>
+                </article>
+              );
+            })
+          ) : (
+            <p className="pd-muted">
+              هنوز نظری ثبت نشده است.
             </p>
           )}
+
+          <ReviewForm
+            productId={product.id}
+            onSaved={onReload}
+          />
         </section>
       </div>
 
-      <section
-        id="product-information"
-        className="product-information"
-      >
-        <div
-          className="detail-tabs"
-          role="tablist"
-          aria-label="اطلاعات محصول"
+      <form className="pd-sticky" onSubmit={handleAdd}>
+        <button
+          type="submit"
+          className="pd-buy"
+          disabled={busy || !available || !validQuantity}
         >
-          {tabs.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              id={`tab-${key}`}
-              aria-selected={activeTab === key}
-              aria-controls={`panel-${key}`}
-              onClick={() => setActiveTab(key)}
-            >
-              {label}
-            </button>
-          ))}
+          {buyLabel}
+        </button>
+
+        {renderQuantityControl("sticky")}
+
+        <div className="pd-sticky-name">
+          <strong>{product.name}</strong>
+          <span>
+            {money(variant?.price ?? product.price)}
+            {" "}
+            <PriceUnit />
+          </span>
         </div>
 
-        <div
-          className="detail-panel"
-          role="tabpanel"
-          id={`panel-${activeTab}`}
-          aria-labelledby={`tab-${activeTab}`}
-        >
-          {activeTab === "description" && (
-            <>
-              <h2>دربارهٔ {product.name}</h2>
-
-              <p className="preserve-lines">
-                {product.description ||
-                  "توضیحات این محصول هنوز ثبت نشده است."}
-              </p>
-            </>
-          )}
-
-          {activeTab === "specs" && (
-            <>
-              <h2>مشخصات محصول</h2>
-
-              <dl className="spec-list">
-                {specifications.map(([label, text]) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{text || "ثبت نشده"}</dd>
-                  </div>
-                ))}
-              </dl>
-            </>
-          )}
-
-          {activeTab === "care" && (
-            <>
-              <h2>نحوهٔ نگهداری</h2>
-
-              <p className="preserve-lines">
-                {product.care_instructions ||
-                  "راهنمای نگهداری این محصول هنوز ثبت نشده است."}
-              </p>
-            </>
-          )}
-
-
-        </div>
-      </section>
-
-      <section id="product-reviews" className="product-reviews" aria-label="نظرات و امتیازها">
-
-              <h2>نظرات و امتیازها</h2>
-
-              {averageRating != null && (
-                <p>
-                  امتیاز میانگین:
-                  {" "}
-                  {money(Number(averageRating).toFixed(1))}
-                  {" "}
-                  از ۵
-                </p>
-              )}
-
-              {reviews.length > 0 ? (
-                reviews.map((review, index) => (
-                  <article
-                    className="review"
-                    key={review.id ?? index}
-                  >
-                    <div>
-                      <strong>
-                        {typeof review.author === "string"
-                          ? review.author
-                          : review.author_name || "خریدار"}
-                      </strong>
-
-                      <span>
-                        {money(review.rating)} از ۵
-                      </span>
-                    </div>
-
-                    {review.title && (
-                      <h3>{review.title}</h3>
-                    )}
-
-                    <p className="preserve-lines">
-                      {review.comment || review.text}
-                    </p>
-
-                    {review.created_at && (
-                      <time dateTime={review.created_at}>
-                        {new Date(
-                          review.created_at
-                        ).toLocaleDateString("fa-IR")}
-                      </time>
-                    )}
-                  </article>
-                ))
-              ) : (
-                <p className="muted">
-                  نظری برای نمایش موجود نیست.
-                </p>
-              )}
-
-              <ReviewForm productId={product.id} onSaved={onReload} />
-
-      </section>
+        {currentImage && (
+          <img src={imageUrl(currentImage)} alt="" />
+        )}
+      </form>
 
       {zoom && (
         <div
@@ -512,8 +566,8 @@ function ProductDetails({ product, onReload }) {
           onClick={() => setZoom(false)}
         >
           <button
-            type="button"
             autoFocus
+            type="button"
             className="close-zoom"
             onClick={() => setZoom(false)}
           >
@@ -521,7 +575,7 @@ function ProductDetails({ product, onReload }) {
           </button>
 
           <img
-            src={imageUrl(images[selectedImage])}
+            src={imageUrl(currentImage)}
             alt={product.name}
             onClick={(event) => event.stopPropagation()}
           />
