@@ -109,6 +109,53 @@ export default function CategoryMenu({
 
   const menuRef = useRef(null);
   const triggerRefs = useRef({});
+  const closeTimer = useRef(null);
+
+  function cancelClose() {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }
+
+  function supportsHover() {
+    return window.matchMedia(
+      "(hover: hover) and (pointer: fine)"
+    ).matches;
+  }
+
+  function openWithMouse(groupId) {
+    if (!supportsHover()) return;
+
+    cancelClose();
+    setOpenGroup(groupId);
+  }
+
+  function scheduleClose() {
+    if (!supportsHover()) return;
+
+    // هنگام استفاده از صفحه‌کلید، منوی دارای فوکوس باز بماند.
+    if (
+      menuRef.current?.contains(document.activeElement)
+    ) {
+      return;
+    }
+
+    cancelClose();
+
+    closeTimer.current = setTimeout(() => {
+      setOpenGroup(null);
+      closeTimer.current = null;
+    }, 200);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -128,8 +175,7 @@ export default function CategoryMenu({
         if (!active) return;
 
         setError(
-          err.message ||
-            "دریافت دسته‌بندی‌ها ناموفق بود."
+          err.message || "دریافت دسته‌بندی‌ها ناموفق بود."
         );
       })
       .finally(() => {
@@ -144,6 +190,7 @@ export default function CategoryMenu({
   useEffect(() => {
     function handleOutsideClick(event) {
       if (!menuRef.current?.contains(event.target)) {
+        cancelClose();
         setOpenGroup(null);
       }
     }
@@ -153,6 +200,7 @@ export default function CategoryMenu({
         event.key === "Escape" &&
         openGroup !== null
       ) {
+        cancelClose();
         setOpenGroup(null);
         triggerRefs.current[openGroup]?.focus();
       }
@@ -182,8 +230,9 @@ export default function CategoryMenu({
   }, [openGroup]);
 
   function closePanel() {
-    const previousGroup = openGroup;
+    cancelClose();
 
+    const previousGroup = openGroup;
     setOpenGroup(null);
 
     if (previousGroup !== null) {
@@ -192,6 +241,8 @@ export default function CategoryMenu({
   }
 
   function selectCategory(category) {
+    cancelClose();
+
     onSelect({
       slug: category.slug,
       title: category.name,
@@ -201,6 +252,8 @@ export default function CategoryMenu({
   }
 
   function selectAllProducts() {
+    cancelClose();
+
     onSelect({
       slug: "",
       title: "همهٔ محصولات",
@@ -214,12 +267,15 @@ export default function CategoryMenu({
       className="category-menu"
       aria-label="دسته‌بندی محصولات"
       ref={menuRef}
+      onMouseEnter={cancelClose}
+      onMouseLeave={scheduleClose}
       onBlur={(event) => {
         if (
           !event.currentTarget.contains(
             event.relatedTarget
           )
         ) {
+          cancelClose();
           setOpenGroup(null);
         }
       }}
@@ -230,6 +286,7 @@ export default function CategoryMenu({
           className={`category-menu-trigger ${
             !selectedSlug ? "is-selected" : ""
           }`}
+          onMouseEnter={() => openWithMouse(null)}
           onClick={selectAllProducts}
         >
           همهٔ محصولات
@@ -264,23 +321,34 @@ export default function CategoryMenu({
                   ? `category-panel-${group.id}`
                   : undefined
               }
-              onClick={() => {
-                if (hasChildren) {
+              onMouseEnter={() => {
+                openWithMouse(
+                  hasChildren ? group.id : null
+                );
+              }}
+              onClick={(event) => {
+                cancelClose();
+
+                if (!hasChildren) {
+                  selectCategory(group);
+                  return;
+                }
+
+                // کلیک موس روی عنوان، منوی باز را نبندد.
+                // لمس و فعال‌سازی با صفحه‌کلید حالت را تغییر دهند.
+                if (
+                  supportsHover() &&
+                  event.detail > 0
+                ) {
+                  setOpenGroup(group.id);
+                } else {
                   setOpenGroup(
                     expanded ? null : group.id
                   );
-                } else {
-                  selectCategory(group);
                 }
               }}
             >
               {group.name}
-
-              {hasChildren && (
-                <span aria-hidden="true">
-                  {expanded ? "−" : "+"}
-                </span>
-              )}
             </button>
           );
         })}
@@ -299,9 +367,9 @@ export default function CategoryMenu({
           <button
             type="button"
             disabled={loading}
-            onClick={() =>
-              setRetry((value) => value + 1)
-            }
+            onClick={() => {
+              setRetry((value) => value + 1);
+            }}
           >
             تلاش دوباره
           </button>
@@ -317,6 +385,8 @@ export default function CategoryMenu({
             id={`category-panel-${group.id}`}
             className="category-menu-panel"
             hidden={openGroup !== group.id}
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
           >
             {openGroup === group.id && (
               <>

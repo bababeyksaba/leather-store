@@ -1,0 +1,127 @@
+.receipt {
+  margin: 16px 0;
+  padding: 20px 16px;
+  direction: rtl;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #eadbd5;
+  border-radius: 16px;
+}
+
+.heading {
+  margin: 0 0 12px;
+  color: #3a302c;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.9;
+}
+
+.numberRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  direction: ltr;
+}
+
+.number {
+  min-width: 0;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.6;
+  color: #554039;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.receipt .copyButton {
+  display: inline-flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  background-image: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: #a46b57;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.receipt .copyButton:hover,
+.receipt .copyButton:active {
+  background: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  color: #774b3c;
+  transform: none;
+}
+
+.copyButton svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.copyButton:focus-visible {
+  outline: 2px solid #b77b66;
+  outline-offset: 2px;
+}
+
+.receipt .copyButton:disabled {
+  background: transparent;
+  opacity: 0.4;
+  cursor: default;
+}
+
+.note {
+  margin: 10px 0 0;
+  color: #756b66;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.feedback {
+  margin: 6px 0 0;
+  color: #39734a;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.feedback:empty {
+  display: none;
+}
+
+.error {
+  margin: 10px 0 0;
+  color: #a83232;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+@media (max-width: 480px) {
+  .receipt {
+    padding: 18px 12px;
+    border-radius: 12px;
+  }
+
+  .heading {
+    font-size: 14px;
+  }
+
+  .number {
+    font-size: 20px;
+  }
+}

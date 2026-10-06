@@ -60,6 +60,10 @@ class OrderSerializer(serializers.ModelSerializer):
         source="get_fulfillment_status_display",
         read_only=True,
     )
+    display_number = serializers.SerializerMethodField()
+
+    def get_display_number(self, obj):
+         return str(100000 + obj.pk)
 
     class Meta:
         model = Order
@@ -97,5 +101,6 @@ class OrderSerializer(serializers.ModelSerializer):
             "processing_at",
             "shipped_at",
             "delivered_at",
+            "display_number",
         ]
 

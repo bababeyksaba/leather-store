@@ -706,3 +706,11 @@ header.boutique-header {
     font-size: 13px;
   }
 }
+.boutique-home .luxury-cart-count,
+.boutique-home .luxury-cart-count:empty {
+  display: block;
+  min-height: 22px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 22px;
+}

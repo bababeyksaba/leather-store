@@ -1,7 +1,11 @@
 import "./globals.css";
+import "./cart.css";
 import "./product-detail.css";
 import "./account.css";
 import "./home.css";
+import "./product-detail.css";
+
+
 
 import { CartProvider } from "../components/cart-context";
 import { AuthProvider } from "../components/auth-context";

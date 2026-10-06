@@ -28,9 +28,17 @@ export default function SiteHeader() {
 
   return (
     <header className="boutique-header">
-      <Link className="brand" href="/">
-        چرم
-        <span>ساخته برای ماندن</span>
+      <Link
+        className="brand site-logo"
+        href="/"
+        aria-label="صفحهٔ اصلی فروشگاه"
+      >
+        <img
+          src="/images/logo.png"
+          alt="لوگوی فروشگاه"
+          width={150}
+          height={60}
+        />
       </Link>
 
       <CategoryMenu onSelect={selectCategory} />

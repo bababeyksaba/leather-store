@@ -8,8 +8,23 @@ import { money, imageUrl } from "../../lib/api";
 import CheckoutButton from "../../components/checkout-button";
 
 export default function CartPage() {
-  const { cart, error, busy, remove, refresh, update } =
-    useCart();
+  const {
+    cart,
+    error,
+    busy,
+    remove,
+    refresh,
+    update,
+  } = useCart();
+
+  const items = cart?.items || [];
+
+  const totalQuantity =
+    cart?.total_quantity ??
+    items.reduce(
+      (total, item) => total + Number(item.quantity || 0),
+      0
+    );
 
   return (
     <>
@@ -21,9 +36,14 @@ export default function CartPage() {
       {error && (
         <p className="error" role="alert">
           {error}
+
           {" "}
 
-          <button onClick={() => refresh().catch(() => {})}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => refresh().catch(() => {})}
+          >
             تلاش دوباره
           </button>
         </p>
@@ -38,11 +58,13 @@ export default function CartPage() {
 
           {cart.unavailable_items.map((key) => (
             <button
+              type="button"
               key={key}
               disabled={busy}
               onClick={() =>
-                remove(Number(key.split(":")[1]))
-                  .catch(() => {})
+                remove(Number(key.split(":")[1])).catch(
+                  () => {}
+                )
               }
             >
               حذف قلم ناموجود {key}
@@ -53,18 +75,18 @@ export default function CartPage() {
 
       {!cart ? (
         <p>در حال دریافت سبد خرید…</p>
-      ) : !cart.items.length ? (
+      ) : items.length === 0 ? (
         <div className="empty">
           <h2>سبد خرید شما خالی است</h2>
           <Link href="/">مشاهدهٔ محصولات</Link>
         </div>
       ) : (
         <div className="cart-layout">
-          <section>
-            {cart.items.map((item) => (
+          <section aria-label="محصولات سبد خرید">
+            {items.map((item) => (
               <article
                 className="cart-item"
-                key={item.cart_key}
+                key={item.cart_key || item.variant_id}
               >
                 <div className="cart-photo">
                   {imageUrl(item.image) && (
@@ -77,15 +99,16 @@ export default function CartPage() {
 
                 <div>
                   <h2>{item.name}</h2>
-                  <p>{item.color}</p>
+
+                  {item.color && <p>{item.color}</p>}
 
                   <p>
-                    تعداد: {money(item.quantity)}
-                    {" · "}
                     قیمت واحد: {money(item.unit_price)}
                   </p>
 
-                  <p>موجودی: {money(item.stock)}</p>
+                  <p>
+                    موجودی: {money(item.stock)}
+                  </p>
 
                   {item.is_available === false && (
                     <p className="error">
@@ -95,13 +118,13 @@ export default function CartPage() {
                   )}
 
                   <QuantityEditor
-                    key={`${item.cart_key}-${item.quantity}`}
                     item={item}
                     update={update}
                     busy={busy}
                   />
 
                   <button
+                    type="button"
                     className="remove"
                     disabled={busy}
                     onClick={() =>
@@ -112,7 +135,9 @@ export default function CartPage() {
                   </button>
                 </div>
 
-                <strong>{money(item.item_total)}</strong>
+                <strong aria-live="polite">
+                  {money(item.item_total)}
+                </strong>
               </article>
             ))}
           </section>
@@ -120,21 +145,13 @@ export default function CartPage() {
           <aside>
             <h2>خلاصهٔ سبد</h2>
 
-            <p>
-              تعداد کل:
-              {" "}
-              {money(
-                cart.total_quantity ??
-                  cart.items.reduce(
-                    (sum, item) => sum + Number(item.quantity),
-                    0
-                  )
-              )}
+            <p aria-live="polite">
+              تعداد کل: {money(totalQuantity)}
             </p>
 
             <p>مجموع قیمت</p>
 
-            <strong className="total">
+            <strong className="total" aria-live="polite">
               {money(cart.total_price)}
             </strong>
 
@@ -150,7 +167,9 @@ export default function CartPage() {
 
             <CheckoutButton disabled={busy} />
 
-            <Link href="/">بازگشت به محصولات ←</Link>
+            <Link href="/">
+              بازگشت به محصولات ←
+            </Link>
           </aside>
         </div>
       )}
@@ -159,53 +178,78 @@ export default function CartPage() {
 }
 
 function QuantityEditor({ item, update, busy }) {
-  const [quantity, setQuantity] = useState(item.quantity);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const value = Number(quantity);
+  const quantity = Number(item.quantity);
+  const max = Math.min(Number(item.stock), 10000);
 
-  const valid =
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= Math.min(item.stock, 10000);
+  async function changeQuantity(nextQuantity) {
+    if (
+      busy ||
+      saving ||
+      !Number.isInteger(nextQuantity) ||
+      nextQuantity < 1 ||
+      nextQuantity > max ||
+      nextQuantity === quantity
+    ) {
+      return;
+    }
 
-  async function submit(event) {
-    event.preventDefault();
-
-    if (!valid || busy) return;
-
+    setSaving(true);
     setError("");
 
     try {
-      await update(item.variant_id, value);
+      await update(item.variant_id, nextQuantity);
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message || "تغییر تعداد انجام نشد."
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <div>
-      <form className="actions" onSubmit={submit}>
-        <input
-          type="number"
-          aria-label={`تعداد ${item.name}`}
-          min="1"
-          max={Math.min(item.stock, 10000)}
-          step="1"
-          value={quantity}
-          disabled={busy}
-          onChange={(event) => setQuantity(event.target.value)}
-        />
+    <div className="cart-quantity-editor">
+      <div
+        className="cart-quantity-control"
+        dir="ltr"
+        role="group"
+        aria-label={`تعداد ${item.name}`}
+        aria-busy={saving}
+      >
+        <button
+          type="button"
+          aria-label={`کاهش تعداد ${item.name}`}
+          disabled={busy || saving || quantity <= 1}
+          onClick={() => changeQuantity(quantity - 1)}
+        >
+          −
+        </button>
+
+        <span aria-live="polite">
+          {money(quantity)}
+        </span>
 
         <button
-          type="submit"
-          disabled={
-            busy || !valid || value === item.quantity
-          }
+          type="button"
+          aria-label={`افزایش تعداد ${item.name}`}
+          disabled={busy || saving || quantity >= max}
+          onClick={() => changeQuantity(quantity + 1)}
         >
-          ثبت تعداد
+          +
         </button>
-      </form>
+      </div>
+
+      {saving && (
+        <small
+          className="cart-quantity-saving"
+          role="status"
+        >
+          در حال به‌روزرسانی قیمت…
+        </small>
+      )}
 
       {error && (
         <p className="error" role="alert">

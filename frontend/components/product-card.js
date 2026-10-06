@@ -16,7 +16,7 @@ export default function ProductCard({
   const variants = product.variants || [];
 
   const [variantId, setVariantId] = useState(
-    variants.find((variant) => variant.stock > 0)?.id ??
+    variants.find((item) => item.stock > 0)?.id ??
       variants[0]?.id
   );
 
@@ -26,39 +26,66 @@ export default function ProductCard({
     (item) => item.id === variantId
   );
 
-  const image = imageUrl(variant?.image || product.image);
+  const image = imageUrl(
+    variant?.image || product.image
+  );
 
   const href =
     `/products/${product.id}/` +
     `${encodeURIComponent(product.slug || "product")}/`;
 
-  const inCart = (cart?.items || [])
-    .filter((item) => item.product_id === product.id)
-    .reduce((sum, item) => sum + Number(item.quantity), 0);
+  const cartItems = cart?.items || [];
 
-  const selectedInCart =
-    cart?.items?.find((item) => item.variant_id === variantId)
-      ?.quantity || 0;
+  const inCart = cartItems
+    .filter(
+      (item) =>
+        String(item.product_id) === String(product.id)
+    )
+    .reduce(
+      (total, item) => total + Number(item.quantity || 0),
+      0
+    );
+
+  const selectedInCart = cartItems
+    .filter(
+      (item) =>
+        String(item.product_id) === String(product.id) &&
+        String(item.variant_id) === String(variantId)
+    )
+    .reduce(
+      (total, item) => total + Number(item.quantity || 0),
+      0
+    );
+
+  const stock = Number(variant?.stock || 0);
 
   const remaining = Math.max(
     0,
     Math.min(
-      (variant?.stock || 0) - selectedInCart,
+      stock - selectedInCart,
       10000 - selectedInCart
     )
   );
 
-  const available = Boolean(
-    variant?.stock > 0 && product.is_active !== false
-  );
+  const available =
+    stock > 0 && product.is_active !== false;
 
   const rating = Number(product.average_rating);
 
   const hasRating =
-    product.average_rating != null && rating > 0;
+    product.average_rating != null &&
+    Number.isFinite(rating) &&
+    rating > 0;
+
+  const colors = [
+    ...new Set(variants.map((item) => item.color)),
+  ];
 
   return (
-    <article className="product luxury-card">
+    <article
+      className="product luxury-card"
+      style={{ alignSelf: "start" }}
+    >
       <div className="luxury-photo-wrap">
         <Link
           href={href}
@@ -80,13 +107,18 @@ export default function ProductCard({
           )}
         </Link>
 
-        <FavoriteButton productId={product.id} compact />
+        <FavoriteButton
+          productId={product.id}
+          compact
+        />
       </div>
 
       <div className="product-body">
         <div className="luxury-title-row">
           <h2>
-            <Link href={href}>{product.name}</Link>
+            <Link href={href}>
+              {product.name}
+            </Link>
           </h2>
 
           <span className="luxury-material">
@@ -114,36 +146,36 @@ export default function ProductCard({
             role="group"
             aria-label="انتخاب رنگ"
           >
-            {[...new Set(variants.map((item) => item.color))]
-              .map((color) => {
-                const choices = variants.filter(
-                  (item) => item.color === color
-                );
+            {colors.map((color) => {
+              const choices = variants.filter(
+                (item) => item.color === color
+              );
 
-                const option =
-                  choices.find((item) => item.stock > 0) ||
-                  choices[0];
+              const option =
+                choices.find((item) => item.stock > 0) ||
+                choices[0];
 
-                const hex = /^#[0-9a-f]{6}$/i.test(
+              const colorHex =
+                /^#[0-9a-f]{6}$/i.test(
                   option.color_hex || ""
                 )
                   ? option.color_hex
-                  : "#ddd";
+                  : "#dddddd";
 
-                return (
-                  <button
-                    type="button"
-                    key={color}
-                    className="luxury-swatch"
-                    style={{ "--swatch": hex }}
-                    title={color || "بدون رنگ"}
-                    aria-label={color || "بدون رنگ"}
-                    aria-pressed={variant?.color === color}
-                    disabled={busy}
-                    onClick={() => setVariantId(option.id)}
-                  />
-                );
-              })}
+              return (
+                <button
+                  key={color || "no-color"}
+                  type="button"
+                  className="luxury-swatch"
+                  style={{ "--swatch": colorHex }}
+                  title={color || "بدون رنگ"}
+                  aria-label={color || "بدون رنگ"}
+                  aria-pressed={variant?.color === color}
+                  disabled={busy}
+                  onClick={() => setVariantId(option.id)}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -155,29 +187,46 @@ export default function ProductCard({
           >
             <i aria-hidden="true" />
 
-            {available ? "موجود در فروشگاه" : "ناموجود"}
+            {available
+              ? "موجود در فروشگاه"
+              : "ناموجود"}
           </span>
 
           <small>{variant?.color}</small>
         </div>
 
-        <div className="luxury-cart-count" aria-live="polite">
-          {inCart > 0
-            ? `✓ ${money(inCart)} عدد در سبد خرید شما`
-            : ""}
-        </div>
+        {inCart > 0 && (
+          <div
+            className="luxury-cart-count"
+            aria-live="polite"
+            style={{
+              minHeight: 0,
+              margin: "0 0 6px",
+              fontSize: "11px",
+              lineHeight: 1.5,
+            }}
+          >
+            ✓ {money(inCart)} عدد در سبد خرید شما
+          </div>
+        )}
 
         <div className="luxury-bottom">
           <p className="card-price">
             {money(variant?.price ?? product.price)}
+
             {" "}
-            <small><PriceUnit /></small>
+
+            <small>
+              <PriceUnit />
+            </small>
           </p>
 
           <button
             type="button"
             className="luxury-buy"
-            disabled={busy || !available || remaining < 1}
+            disabled={
+              busy || !available || remaining < 1
+            }
             onClick={() => onAdd(variantId, 1)}
           >
             <svg

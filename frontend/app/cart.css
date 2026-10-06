@@ -1,0 +1,77 @@
+.cart-quantity-editor {
+  margin: 12px 0;
+}
+
+.cart-quantity-control {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid #e9e5e2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cart-layout .cart-quantity-control button,
+.cart-layout .cart-quantity-control button:hover,
+.cart-layout .cart-quantity-control button:active {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 100%;
+  padding: 0;
+  border: none !important;
+  border-radius: 0;
+  background: #fff !important;
+  background-image: none !important;
+  color: #a46b57 !important;
+  box-shadow: none !important;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.cart-quantity-control span {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 100%;
+  padding: 0 6px;
+  border-right: 1px solid #e9e5e2;
+  border-left: 1px solid #e9e5e2;
+  color: #302722;
+  font-size: 14px;
+}
+
+.cart-layout .cart-quantity-control button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cart-quantity-control button:focus-visible {
+  outline: 2px solid #a46b57;
+  outline-offset: -3px;
+}
+
+.cart-quantity-saving {
+  display: block;
+  margin-top: 6px;
+  color: #82756d;
+  font-size: 11px;
+}
+
+/* حذف از سبد بدون پس‌زمینه */
+.cart-layout button.remove,
+.cart-layout button.remove:hover,
+.cart-layout button.remove:active {
+  padding: 4px 0;
+  border: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: #a46b57 !important;
+  box-shadow: none !important;
+}
+
+.cart-layout button.remove:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

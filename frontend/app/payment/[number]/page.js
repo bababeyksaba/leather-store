@@ -4,15 +4,22 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { api, accountMutation, money } from "../../../lib/api";
+import {
+  api,
+  accountMutation,
+  money,
+} from "../../../lib/api";
+
 import { useAuth } from "../../../components/auth-context";
 import { useCart } from "../../../components/cart-context";
 import OrderFulfillment from "../../../components/order-fulfillment";
+import OrderReceipt from "../../../components/order-receipt";
 
 export default function TestPaymentPage({ params }) {
   const { number } = use(params);
 
   const router = useRouter();
+
   const { refreshAuth } = useAuth();
   const { refresh: refreshCart } = useCart();
 
@@ -30,7 +37,9 @@ export default function TestPaymentPage({ params }) {
       if (!active) return;
 
       if (!session.authenticated) {
-        router.replace("/login");
+        router.replace(
+          `/login?next=${encodeURIComponent(`/payment/${number}`)}`
+        );
         return;
       }
 
@@ -78,14 +87,18 @@ export default function TestPaymentPage({ params }) {
 
   return (
     <section className="account-page">
-      <h1>پرداخت آزمایشی</h1>
+      <h1>
+        {order?.status === "paid"
+          ? "سفارش ثبت شد"
+          : "جزئیات سفارش و پرداخت"}
+      </h1>
 
       <p className="account-note">
-        این صفحه درگاه بانکی نیست.
-        هیچ پولی جابه‌جا نمی‌شود.
+        پرداخت این نسخه آزمایشی است؛ هیچ پولی جابه‌جا نمی‌شود.
       </p>
 
       <button
+        type="button"
         disabled={busy}
         onClick={() => setRetry((value) => value + 1)}
       >
@@ -93,28 +106,24 @@ export default function TestPaymentPage({ params }) {
       </button>
 
       {error && (
-        <p className="error" role="alert">
-          {error}
-          {" "}
+        <div className="error" role="alert">
+          <p>{error}</p>
 
           <button
+            type="button"
             disabled={busy}
             onClick={() => setRetry((value) => value + 1)}
           >
             تلاش دوباره
           </button>
-        </p>
+        </div>
       )}
 
       {!order ? (
         <p>در حال دریافت سفارش…</p>
       ) : (
         <div className="account-panel">
-          <p>
-            شماره سفارش:
-            {" "}
-            <b dir="ltr">{order.number}</b>
-          </p>
+          <OrderReceipt order={order} />
 
           <p>وضعیت پرداخت: {order.status_label}</p>
 
@@ -125,16 +134,18 @@ export default function TestPaymentPage({ params }) {
           </p>
 
           <p>
-            {order.province}، {order.city}،
-            {" "}
-            {order.address_line}
+            {order.province}، {order.city}، {order.address_line}
           </p>
+
+          <p>کد پستی: {order.postal_code}</p>
 
           <p>روش ارسال: {order.shipping_name}</p>
 
           <OrderFulfillment order={order} />
 
-          {(order.items || []).map((item) => (
+          <h2>محصولات سفارش</h2>
+
+          {(order.items ?? []).map((item) => (
             <p key={item.id || item.cart_key}>
               {item.name} {item.color}
               {" · "}
@@ -144,45 +155,57 @@ export default function TestPaymentPage({ params }) {
             </p>
           ))}
 
+          <p>جمع محصولات: {money(order.subtotal)}</p>
+          <p>هزینه ارسال: {money(order.shipping_fee)}</p>
+
           {order.status === "pending" && (
             <>
               <p>
-                مهلت پرداخت:
-                {" "}
-                {new Date(order.expires_at)
-                  .toLocaleString("fa-IR")}
+                مهلت پرداخت:{" "}
+                {new Date(order.expires_at).toLocaleString("fa-IR")}
               </p>
 
-              <button
-                className="checkout-button"
-                disabled={busy}
-                onClick={() => action("test-payment")}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  marginBlock: "20px",
+                }}
               >
-                {busy
-                  ? "در حال بررسی…"
-                  : "شبیه‌سازی پرداخت موفق"}
-              </button>
+                <button
+                  type="button"
+                  className="checkout-button"
+                  disabled={busy}
+                  onClick={() => action("test-payment")}
+                >
+                  {busy
+                    ? "در حال بررسی…"
+                    : "شبیه‌سازی پرداخت موفق"}
+                </button>
 
-              <button
-                className="plain-button"
-                disabled={busy}
-                onClick={() => action("cancel")}
-              >
-                لغو سفارش و آزادسازی موجودی
-              </button>
+                <button
+                  type="button"
+                  className="plain-button"
+                  disabled={busy}
+                  onClick={() => action("cancel")}
+                >
+                  لغو سفارش
+                </button>
+              </div>
             </>
           )}
 
           {order.status === "paid" && (
-            <p className="success">
-              پرداخت آزمایشی موفق بود.
-              این سفارش در بخش سفارشات حساب شما ثبت شده است.
-            </p>
+            <p className="success" role="status">
+  پرداخت آزمایشی موفق بود. شمارهٔ سفارش را با آیکون کنار آن کپی کنید.
+</p>
           )}
 
-          {["cancelled", "expired"].includes(order.status) && (
+          {(order.status === "cancelled" ||
+            order.status === "expired") && (
             <p>
-              موجودی رزروشده آزاد شده است؛
+              سفارش بسته شده و موجودی رزروشده آزاد شده است.
               می‌توانید دوباره سفارش بدهید.
             </p>
           )}
@@ -193,7 +216,7 @@ export default function TestPaymentPage({ params }) {
             </Link>
           </p>
 
-          <Link href="/cart">بازگشت به سبد</Link>
+          <Link href="/cart">بازگشت به سبد خرید</Link>
         </div>
       )}
     </section>

@@ -42,7 +42,10 @@ export default function ProductPage() {
         <h1>محصول دریافت نشد</h1>
         <p>{error}</p>
 
-        <button onClick={() => setRetry((value) => value + 1)}>
+        <button
+          type="button"
+          onClick={() => setRetry((value) => value + 1)}
+        >
           تلاش دوباره
         </button>
 
@@ -70,10 +73,11 @@ export default function ProductPage() {
 
 function ProductDetails({ product, onReload }) {
   const { add, busy, cart } = useCart();
+
   const variants = product.variants || [];
 
   const [variantId, setVariantId] = useState(
-    variants.find((variant) => variant.stock > 0)?.id ??
+    variants.find((item) => item.stock > 0)?.id ??
       variants[0]?.id
   );
 
@@ -81,11 +85,12 @@ function ProductDetails({ product, onReload }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [failedImages, setFailedImages] = useState([]);
   const [tab, setTab] = useState("description");
-  const [zoom, setZoom] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const variant = variants.find((item) => item.id === variantId);
+  const variant = variants.find(
+    (item) => item.id === variantId
+  );
 
   const images = [
     ...new Set(
@@ -101,70 +106,67 @@ function ProductDetails({ product, onReload }) {
 
   const currentImage = images[selectedImage] || images[0];
   const reviews = product.reviews || [];
-
   const rating = product.average_rating;
-  const reviewCount = product.review_count ?? reviews.length;
+  const count = product.review_count ?? reviews.length;
 
-  const ratingText =
-    rating == null
-      ? "بدون امتیاز"
-      : `${money(Number(rating).toFixed(1))} از ۵`;
+  const inCart = (cart?.items || [])
+    .filter(
+      (item) =>
+        String(item.product_id) === String(product.id) &&
+        String(item.variant_id) === String(variantId)
+    )
+    .reduce(
+      (total, item) => total + Number(item.quantity || 0),
+      0
+    );
 
-  const inCart =
-    cart?.items?.find((item) => item.variant_id === variantId)
-      ?.quantity || 0;
-
-  const maxQuantity = Math.max(
+  const max = Math.max(
     0,
     Math.min(
-      (variant?.stock || 0) - inCart,
+      Number(variant?.stock || 0) - inCart,
       10000 - inCart
     )
   );
 
   const value = Number(quantity);
 
-  const validQuantity =
+  const valid =
     Number.isInteger(value) &&
     value >= 1 &&
-    value <= maxQuantity;
+    value <= max;
 
   const available =
-    variant?.stock > 0 && product.is_active !== false;
+    Number(variant?.stock || 0) > 0 &&
+    product.is_active !== false;
 
-  const specifications = [
+  const specs = [
     ["جنس", product.material],
-    ["رنگ", variant?.color],
+    ["رنگ", variant?.color || product.color],
     ["ابعاد", product.dimensions],
     ["کد محصول", variant?.sku || product.sku],
+  ];
+
+  const colors = [
+    ...new Set(variants.map((item) => item.color)),
   ];
 
   const buyLabel = busy
     ? "در حال ثبت…"
     : !available
       ? "ناموجود"
-      : maxQuantity === 0
+      : max === 0
         ? "تمام موجودی در سبد شماست"
         : "افزودن به سبد خرید";
 
-  useEffect(() => {
-    if (!zoom) return;
+  const ratingText =
+    rating == null
+      ? "بدون امتیاز"
+      : `${money(Number(rating).toFixed(1))} از ۵`;
 
-    function handleKeyDown(event) {
-      if (event.key === "Escape") setZoom(false);
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [zoom]);
-
-  async function handleAdd(event) {
+  async function submit(event) {
     event.preventDefault();
 
-    if (!validQuantity || !available || busy) return;
+    if (!valid || !available || busy) return;
 
     setError("");
     setNotice("");
@@ -177,30 +179,39 @@ function ProductDetails({ product, onReload }) {
     }
   }
 
-  function selectColor(color) {
-    const choices = variants.filter(
-      (item) => item.color === color
+  function moveZoom(event) {
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+
+    if (!rect.width || !rect.height) return;
+
+    const x = Math.max(
+      0,
+      Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)
     );
 
-    const selected =
-      choices.find((item) => item.stock > 0) || choices[0];
+    const y = Math.max(
+      0,
+      Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)
+    );
 
-    if (!selected) return;
-
-    setVariantId(selected.id);
-    setQuantity(1);
-    setSelectedImage(0);
-    setError("");
-    setNotice("");
+    element.style.setProperty("--zoom-origin", `${x}% ${y}%`);
   }
 
-  function renderQuantityControl(suffix) {
+  function resetZoom(event) {
+    event.currentTarget.style.setProperty(
+      "--zoom-origin",
+      "50% 50%"
+    );
+  }
+
+  function quantityControl(suffix) {
     return (
       <div className="pd-quantity" dir="ltr">
         <button
           type="button"
           aria-label="کاهش تعداد"
-          disabled={busy || value <= 1}
+          disabled={busy || !available || value <= 1}
           onClick={() => setQuantity(Math.max(1, value - 1))}
         >
           −
@@ -211,10 +222,10 @@ function ProductDetails({ product, onReload }) {
           aria-label="تعداد محصول"
           type="number"
           min="1"
-          max={maxQuantity || 1}
+          max={max || 1}
           step="1"
           value={quantity}
-          disabled={busy || !available}
+          disabled={busy || !available || max === 0}
           onChange={(event) => setQuantity(event.target.value)}
         />
 
@@ -222,10 +233,7 @@ function ProductDetails({ product, onReload }) {
           type="button"
           aria-label="افزایش تعداد"
           disabled={
-            busy ||
-            !available ||
-            !validQuantity ||
-            value >= maxQuantity
+            busy || !available || !valid || value >= max
           }
           onClick={() => setQuantity(value + 1)}
         >
@@ -238,10 +246,7 @@ function ProductDetails({ product, onReload }) {
   return (
     <div className="pd-page">
       <div className="pd-top">
-        <section
-          className="pd-gallery"
-          aria-label="گالری محصول"
-        >
+        <section className="pd-gallery" aria-label="گالری محصول">
           <div className="pd-thumbs">
             {images.map((image, index) => (
               <button
@@ -261,23 +266,25 @@ function ProductDetails({ product, onReload }) {
 
             {currentImage &&
             !failedImages.includes(currentImage) ? (
-              <button
-                type="button"
-                className="pd-image-open"
-                aria-label="بزرگ‌نمایی تصویر محصول"
-                onClick={() => setZoom(true)}
+              <div
+                key={currentImage}
+                className="pd-image-hover"
+                onMouseMove={moveZoom}
+                onMouseLeave={resetZoom}
               >
                 <img
                   src={imageUrl(currentImage)}
                   alt={product.name}
+                  decoding="async"
                   onError={() =>
-                    setFailedImages((items) => [
-                      ...items,
-                      currentImage,
-                    ])
+                    setFailedImages((items) =>
+                      items.includes(currentImage)
+                        ? items
+                        : [...items, currentImage]
+                    )
                   }
                 />
-              </button>
+              </div>
             ) : (
               <span className="pd-placeholder">
                 تصویر محصول در دسترس نیست
@@ -287,13 +294,18 @@ function ProductDetails({ product, onReload }) {
         </section>
 
         <div className="pd-summary-column">
-          <nav
-            className="pd-breadcrumbs"
-            aria-label="مسیر صفحه"
-          >
+          <nav className="pd-breadcrumbs" aria-label="مسیر صفحه">
             <Link href="/">خانه</Link>
             <span>‹</span>
-            <span>{product.category_name || "محصولات"}</span>
+
+            <Link
+              href={`/?category=${encodeURIComponent(
+                product.category_slug || ""
+              )}`}
+            >
+              {product.category_name || "محصولات"}
+            </Link>
+
             <span>‹</span>
             <span>{product.name}</span>
           </nav>
@@ -301,13 +313,9 @@ function ProductDetails({ product, onReload }) {
           <section className="pd-summary">
             <h1>{product.name}</h1>
 
-            <a
-              className="pd-rating"
-              href="#product-reviews"
-            >
-              {ratingText}
-              {" "}
-              <small>({money(reviewCount)} امتیاز)</small>
+            <a className="pd-rating" href="#product-reviews">
+              {ratingText}{" "}
+              <small>({money(count)} امتیاز)</small>
             </a>
 
             <p className="pd-intro">
@@ -322,60 +330,66 @@ function ProductDetails({ product, onReload }) {
               </strong>
 
               <div>
-                {[...new Set(variants.map((item) => item.color))]
-                  .map((color) => {
-                    const choices = variants.filter(
-                      (item) => item.color === color
-                    );
+                {colors.map((color) => {
+                  const choices = variants.filter(
+                    (item) => item.color === color
+                  );
 
-                    const option =
-                      choices.find((item) => item.stock > 0) ||
-                      choices[0];
+                  const option =
+                    choices.find((item) => item.stock > 0) ||
+                    choices[0];
 
-                    const hex = /^#[0-9a-f]{6}$/i.test(
-                      option.color_hex || ""
-                    )
-                      ? option.color_hex
-                      : "#ddd";
+                  const hex = /^#[0-9a-f]{6}$/i.test(
+                    option.color_hex || ""
+                  )
+                    ? option.color_hex
+                    : "#dddddd";
 
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        className="pd-swatch"
-                        style={{ "--swatch": hex }}
-                        aria-label={color || "رنگ اصلی"}
-                        title={color || "رنگ اصلی"}
-                        aria-pressed={variant?.color === color}
-                        disabled={busy}
-                        onClick={() => selectColor(color)}
-                      />
-                    );
-                  })}
+                  return (
+                    <button
+                      key={color || "no-color"}
+                      type="button"
+                      className="pd-swatch"
+                      style={{ "--swatch": hex }}
+                      aria-label={color || "رنگ اصلی"}
+                      title={color || "رنگ اصلی"}
+                      aria-pressed={variant?.color === color}
+                      disabled={busy}
+                      onClick={() => {
+                        setVariantId(option.id);
+                        setQuantity(1);
+                        setSelectedImage(0);
+                        setNotice("");
+                        setError("");
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
 
-            <form onSubmit={handleAdd}>
+            <form onSubmit={submit}>
               <div className="pd-purchase-line">
                 <div>
                   <label htmlFor="pd-quantity-main">
                     تعداد
                   </label>
 
-                  {renderQuantityControl("main")}
+                  {quantityControl("main")}
                 </div>
 
                 <strong className="pd-price">
-                  {money(variant?.price ?? product.price)}
-                  {" "}
-                  <small><PriceUnit /></small>
+                  {money(variant?.price ?? product.price)}{" "}
+                  <small>
+                    <PriceUnit />
+                  </small>
                 </strong>
               </div>
 
               <button
                 type="submit"
                 className="pd-buy"
-                disabled={busy || !available || !validQuantity}
+                disabled={busy || !available || !valid}
               >
                 {buyLabel}
               </button>
@@ -390,8 +404,7 @@ function ProductDetails({ product, onReload }) {
             <div aria-live="polite">
               {notice && (
                 <p className="success">
-                  {notice}
-                  {" "}
+                  {notice}{" "}
                   <Link href="/cart">مشاهدهٔ سبد</Link>
                 </p>
               )}
@@ -439,8 +452,7 @@ function ProductDetails({ product, onReload }) {
           >
             <p className="preserve-lines">
               {tab === "description"
-                ? product.description ||
-                  "توضیحات ثبت نشده است."
+                ? product.description || "توضیحات ثبت نشده است."
                 : product.care_instructions ||
                   "راهنمای نگهداری ثبت نشده است."}
             </p>
@@ -450,7 +462,7 @@ function ProductDetails({ product, onReload }) {
             <h2>مشخصات</h2>
 
             <dl>
-              {specifications
+              {specs
                 .filter(([, text]) => text)
                 .map(([label, text]) => (
                   <div key={label}>
@@ -462,17 +474,13 @@ function ProductDetails({ product, onReload }) {
           </div>
         </section>
 
-        <section
-          id="product-reviews"
-          className="pd-reviews"
-        >
+        <section id="product-reviews" className="pd-reviews">
           <div className="pd-reviews-title">
             <h2>نظرات و امتیازها</h2>
 
             <span>
-              {ratingText}
-              {" "}
-              <small>({money(reviewCount)} امتیاز)</small>
+              {ratingText}{" "}
+              <small>({money(count)} امتیاز)</small>
             </span>
           </div>
 
@@ -484,15 +492,9 @@ function ProductDetails({ product, onReload }) {
                   : review.author_name || "کاربر";
 
               return (
-                <article
-                  className="pd-review"
-                  key={review.id}
-                >
+                <article className="pd-review" key={review.id}>
                   <div className="pd-review-heading">
-                    <span
-                      className="pd-avatar"
-                      aria-hidden="true"
-                    >
+                    <span className="pd-avatar" aria-hidden="true">
                       {author.slice(0, 1)}
                     </span>
 
@@ -520,9 +522,7 @@ function ProductDetails({ product, onReload }) {
               );
             })
           ) : (
-            <p className="pd-muted">
-              هنوز نظری ثبت نشده است.
-            </p>
+            <p className="pd-muted">هنوز نظری ثبت نشده است.</p>
           )}
 
           <ReviewForm
@@ -532,22 +532,22 @@ function ProductDetails({ product, onReload }) {
         </section>
       </div>
 
-      <form className="pd-sticky" onSubmit={handleAdd}>
+      <form className="pd-sticky" onSubmit={submit}>
         <button
           type="submit"
           className="pd-buy"
-          disabled={busy || !available || !validQuantity}
+          disabled={busy || !available || !valid}
         >
           {buyLabel}
         </button>
 
-        {renderQuantityControl("sticky")}
+        {quantityControl("sticky")}
 
         <div className="pd-sticky-name">
           <strong>{product.name}</strong>
+
           <span>
-            {money(variant?.price ?? product.price)}
-            {" "}
+            {money(variant?.price ?? product.price)}{" "}
             <PriceUnit />
           </span>
         </div>
@@ -556,31 +556,6 @@ function ProductDetails({ product, onReload }) {
           <img src={imageUrl(currentImage)} alt="" />
         )}
       </form>
-
-      {zoom && (
-        <div
-          className="image-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="تصویر بزرگ محصول"
-          onClick={() => setZoom(false)}
-        >
-          <button
-            autoFocus
-            type="button"
-            className="close-zoom"
-            onClick={() => setZoom(false)}
-          >
-            بستن ×
-          </button>
-
-          <img
-            src={imageUrl(currentImage)}
-            alt={product.name}
-            onClick={(event) => event.stopPropagation()}
-          />
-        </div>
-      )}
     </div>
   );
 }
