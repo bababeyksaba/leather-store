@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db.models import Avg, Count
 from rest_framework import serializers
 
 from .models import (
@@ -9,6 +10,7 @@ from .models import (
     ProductVariant,
     ProductReview,
 )
+from .variants import active_variants
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -43,7 +45,6 @@ class MenuCategorySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_children(self, obj):
-        # View تمام دسته‌های منو را یک‌بار دریافت می‌کند.
         children_by_parent = self.context.get(
             "menu_children_by_parent"
         )
@@ -73,11 +74,18 @@ class MenuCategorySerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    # شناسهٔ رنگ مرتبط با عکس گالری.
+    variant_id = serializers.IntegerField(
+        read_only=True,
+        allow_null=True,
+    )
+
     class Meta:
         model = ProductImage
 
         fields = (
             "id",
+            "variant_id",
             "image",
             "alt_text",
             "is_primary",
@@ -104,56 +112,52 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_author_name(self, obj):
-        profile = getattr(obj.user, "customer_profile", None)
-        if profile and profile.first_name.strip():
-            return profile.first_name.strip()
+        profile = getattr(
+            obj.user,
+            "customer_profile",
+            None,
+        )
+
+        if profile:
+            first_name = (
+                getattr(profile, "first_name", "") or ""
+            ).strip()
+
+            if first_name:
+                return first_name
+
         return "کاربر فروشگاه"
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
-        fields = ("id", "sku", "color", "color_hex", "size", "price", "stock", "image", "is_active")
+
+        fields = (
+            "id",
+            "sku",
+            "color",
+            "color_hex",
+            "size",
+            "price",
+            "stock",
+            "image",
+            "is_active",
+        )
+
         read_only_fields = fields
 
 
 class ProductListSerializer(serializers.ModelSerializer):
-    average_rating = serializers.SerializerMethodField()
-    review_count = serializers.SerializerMethodField()
-
-    def _review_stats(self, obj):
-        from django.db.models import Avg, Count
-        if not hasattr(obj, "_card_review_stats"):
-            obj._card_review_stats = obj.reviews.filter(is_approved=True).aggregate(average=Avg("rating"), count=Count("id"))
-        return obj._card_review_stats
-
-    def get_average_rating(self, obj):
-        value = self._review_stats(obj)["average"]
-        return round(value, 1) if value is not None else None
-
-    def get_review_count(self, obj):
-        return self._review_stats(obj)["count"]
+    category = CategorySerializer(read_only=True)
 
     variants = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     stock = serializers.SerializerMethodField()
-
-    def get_variants(self, obj):
-        from .variants import active_variants
-        return ProductVariantSerializer(active_variants(obj), many=True, context=self.context).data
-
-    def get_price(self, obj):
-        from .variants import active_variants
-        values = active_variants(obj)
-        return str(min((v.price for v in values), default=obj.price))
-
-    def get_stock(self, obj):
-        from .variants import active_variants
-        return sum(v.stock for v in active_variants(obj))
-
-    category = CategorySerializer(read_only=True)
-
     is_available = serializers.SerializerMethodField()
+
+    average_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -177,21 +181,85 @@ class ProductListSerializer(serializers.ModelSerializer):
 
         read_only_fields = fields
 
-    def get_is_available(self, obj):
-        visible_ids = self.context.get("visible_category_ids")
+    def get_active_variants(self, obj):
+        if not hasattr(self, "_variants_cache"):
+            self._variants_cache = {}
 
-        if visible_ids is not None:
-            return (
-                obj.is_active
-                and self.get_stock(obj) > 0
-                and obj.category_id in visible_ids
+        if obj.pk not in self._variants_cache:
+            self._variants_cache[obj.pk] = list(
+                active_variants(obj)
             )
 
-        return bool(obj.is_active and obj.category.is_effectively_active and self.get_stock(obj) > 0)
+        return self._variants_cache[obj.pk]
+
+    def get_variants(self, obj):
+        return ProductVariantSerializer(
+            self.get_active_variants(obj),
+            many=True,
+            context=self.context,
+        ).data
+
+    def get_price(self, obj):
+        variants = self.get_active_variants(obj)
+
+        price = min(
+            (variant.price for variant in variants),
+            default=obj.price,
+        )
+
+        return str(price)
+
+    def get_stock(self, obj):
+        return sum(
+            variant.stock
+            for variant in self.get_active_variants(obj)
+        )
+
+    def get_is_available(self, obj):
+        if not obj.is_active or self.get_stock(obj) <= 0:
+            return False
+
+        visible_ids = self.context.get(
+            "visible_category_ids"
+        )
+
+        if visible_ids is not None:
+            return obj.category_id in visible_ids
+
+        return obj.category.is_effectively_active
+
+    def get_review_stats(self, obj):
+        if not hasattr(self, "_review_stats_cache"):
+            self._review_stats_cache = {}
+
+        if obj.pk not in self._review_stats_cache:
+            self._review_stats_cache[obj.pk] = (
+                obj.reviews
+                .filter(is_approved=True)
+                .aggregate(
+                    average=Avg("rating"),
+                    count=Count("id"),
+                )
+            )
+
+        return self._review_stats_cache[obj.pk]
+
+    def get_average_rating(self, obj):
+        value = self.get_review_stats(obj)["average"]
+
+        if value is None:
+            return None
+
+        return round(float(value), 1)
+
+    def get_review_count(self, obj):
+        return self.get_review_stats(obj)["count"]
 
 
 class ProductDetailSerializer(ProductListSerializer):
-    category_id = serializers.IntegerField(read_only=True)
+    category_id = serializers.IntegerField(
+        read_only=True,
+    )
 
     category_name = serializers.CharField(
         source="category.name",
@@ -208,13 +276,7 @@ class ProductDetailSerializer(ProductListSerializer):
         read_only=True,
     )
 
-    is_available = serializers.SerializerMethodField()
-
     reviews = serializers.SerializerMethodField()
-
-    average_rating = serializers.SerializerMethodField()
-
-    review_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -249,18 +311,6 @@ class ProductDetailSerializer(ProductListSerializer):
 
         read_only_fields = fields
 
-    def get_is_available(self, obj):
-        visible_ids = self.context.get("visible_category_ids")
-
-        if visible_ids is not None:
-            return (
-                obj.is_active
-                and self.get_stock(obj) > 0
-                and obj.category_id in visible_ids
-            )
-
-        return bool(obj.is_active and obj.category.is_effectively_active and self.get_stock(obj) > 0)
-
     def get_approved_reviews(self, obj):
         if not hasattr(self, "_reviews_cache"):
             self._reviews_cache = {}
@@ -273,7 +323,7 @@ class ProductDetailSerializer(ProductListSerializer):
             )
 
             if prefetched_reviews is not None:
-                reviews = prefetched_reviews
+                reviews = list(prefetched_reviews)
             else:
                 reviews = list(
                     obj.reviews
@@ -295,13 +345,25 @@ class ProductDetailSerializer(ProductListSerializer):
 
     def get_average_rating(self, obj):
         if hasattr(obj, "approved_rating"):
-            return None if obj.approved_rating is None else float(Decimal(str(obj.approved_rating)).quantize(Decimal("0.1")))
+            value = obj.approved_rating
+
+            if value is None:
+                return None
+
+            return float(
+                Decimal(str(value)).quantize(
+                    Decimal("0.1")
+                )
+            )
+
         reviews = self.get_approved_reviews(obj)
 
         if not reviews:
             return None
 
-        total = sum(review.rating for review in reviews)
+        total = sum(
+            review.rating for review in reviews
+        )
 
         average = (
             Decimal(total) / Decimal(len(reviews))
@@ -312,9 +374,11 @@ class ProductDetailSerializer(ProductListSerializer):
     def get_review_count(self, obj):
         if hasattr(obj, "approved_count"):
             return obj.approved_count or 0
+
         return len(self.get_approved_reviews(obj))
 
 
 class CategoryProductSerializer(ProductListSerializer):
-    """محصولات یک دسته با همان ساختار فهرست محصولات."""
+    """محصولات دسته‌بندی با ساختار فهرست محصولات."""
+
     pass

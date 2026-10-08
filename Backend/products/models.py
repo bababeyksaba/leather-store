@@ -7,6 +7,8 @@ from django.core.validators import (
 )
 from django.db import models
 
+from .auto_sku import AutoProductSkuMixin
+
 
 class Category(models.Model):
     name = models.CharField(
@@ -58,6 +60,16 @@ class Category(models.Model):
         help_text="عدد کمتر، زودتر نمایش داده می‌شود.",
     )
 
+    show_on_homepage = models.BooleanField(
+        default=False,
+        verbose_name="نمایش در صفحهٔ اصلی",
+    )
+
+    homepage_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="ترتیب نمایش در صفحهٔ اصلی",
+    )
+
     is_active = models.BooleanField(
         default=True,
         verbose_name="فعال",
@@ -90,7 +102,7 @@ class Category(models.Model):
                     "parent": (
                         "دسته‌بندی نمی‌تواند والد خودش یا "
                         "زیرمجموعهٔ یکی از زیرمجموعه‌های خودش باشد."
-                    )
+                    ),
                 })
 
             visited.add(parent_id)
@@ -104,14 +116,13 @@ class Category(models.Model):
 
             if parent is None:
                 raise ValidationError({
-                    "parent": "دسته‌بندی والد وجود ندارد."
+                    "parent": "دسته‌بندی والد وجود ندارد.",
                 })
 
             parent_id = parent["parent_id"]
 
     @property
     def is_effectively_active(self):
-        """دسته و تمام والدهای آن باید فعال باشند."""
         if not self.is_active:
             return False
 
@@ -142,7 +153,7 @@ class Category(models.Model):
         return self.name
 
 
-class Product(models.Model):
+class Product(AutoProductSkuMixin):
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
@@ -165,7 +176,9 @@ class Product(models.Model):
     sku = models.CharField(
         max_length=50,
         unique=True,
+        blank=True,
         verbose_name="کد محصول",
+        help_text="پس از ذخیرهٔ محصول، خودکار ساخته می‌شود.",
     )
 
     description = models.TextField(
@@ -258,12 +271,126 @@ class Product(models.Model):
         return self.name
 
 
+class ProductVariant(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="variants",
+        verbose_name="محصول",
+    )
+
+    sku = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="کد تنوع",
+    )
+
+    color = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="رنگ",
+    )
+
+    color_hex = models.CharField(
+        max_length=7,
+        blank=True,
+        validators=[
+            RegexValidator(
+                r"^#[0-9a-fA-F]{6}$",
+                "کد رنگ باید مانند #800020 باشد.",
+            ),
+        ],
+        verbose_name="رنگ پالت",
+        help_text="رنگ نمایشی دایرهٔ پالت را انتخاب کنید.",
+    )
+
+    size = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="سایز",
+    )
+
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=0,
+        validators=[MinValueValidator(0)],
+        verbose_name="قیمت",
+    )
+
+    stock = models.PositiveIntegerField(
+        default=0,
+        verbose_name="موجودی",
+    )
+
+    image = models.ImageField(
+        upload_to="products/variants/",
+        blank=True,
+        null=True,
+        verbose_name="تصویر رنگ",
+        help_text=(
+            "این تصویر برای انتخاب رنگ و تصویر اصلی "
+            "همان رنگ استفاده می‌شود."
+        ),
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="فعال",
+    )
+
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name="تنوع اولیه برای سبدهای قدیمی",
+    )
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "رنگ و سایز محصول"
+        verbose_name_plural = "رنگ‌ها و سایزهای محصول"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "color", "size"],
+                name="unique_product_color_size",
+            ),
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=models.Q(is_default=True),
+                name="one_legacy_default_variant",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name="variant_price_nonnegative",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.product.name} — "
+            f"{self.color or 'بدون رنگ'}"
+            f" / {self.size or 'بدون سایز'}"
+        )
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey(
         Product,
         on_delete=models.CASCADE,
         related_name="images",
         verbose_name="محصول",
+    )
+
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.CASCADE,
+        related_name="gallery_images",
+        blank=True,
+        null=True,
+        verbose_name="رنگ محصول",
+        help_text=(
+            "رنگ مربوط به این تصویر را انتخاب کنید. "
+            "برای هر رنگ می‌توانید چند تصویر ثبت کنید."
+        ),
     )
 
     image = models.ImageField(
@@ -292,7 +419,35 @@ class ProductImage(models.Model):
         verbose_name = "تصویر محصول"
         verbose_name_plural = "تصاویر محصولات"
 
+    def clean(self):
+        super().clean()
+
+        if self.variant_id and self.product_id:
+            variant_product_id = (
+                ProductVariant.objects
+                .filter(pk=self.variant_id)
+                .values_list("product_id", flat=True)
+                .first()
+            )
+
+            if (
+                variant_product_id is not None
+                and variant_product_id != self.product_id
+            ):
+                raise ValidationError({
+                    "variant": (
+                        "رنگ انتخاب‌شده متعلق به این محصول نیست. "
+                        "یکی از رنگ‌های همین محصول را انتخاب کنید."
+                    ),
+                })
+
     def __str__(self):
+        if self.variant_id:
+            return (
+                f"تصویر {self.product.name} — "
+                f"{self.variant.color or 'بدون رنگ'}"
+            )
+
         return f"تصویر {self.product.name}"
 
 
@@ -372,27 +527,6 @@ class ProductReview(models.Model):
             f"امتیاز {self.rating}"
         )
 
-class ProductVariant(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants", verbose_name="محصول")
-    sku = models.CharField(max_length=50, unique=True, verbose_name="کد تنوع")
-    color = models.CharField(max_length=50, blank=True, verbose_name="رنگ")
-    color_hex = models.CharField(max_length=7, blank=True, validators=[RegexValidator(r"^#[0-9a-fA-F]{6}$", "کد رنگ باید مانند #800020 باشد.")], verbose_name="رنگ پالت", help_text="رنگ نمایشی دایرهٔ پالت را انتخاب کنید.")
-    size = models.CharField(max_length=100, blank=True, verbose_name="سایز")
-    price = models.DecimalField(max_digits=12, decimal_places=0, validators=[MinValueValidator(0)], verbose_name="قیمت")
-    stock = models.PositiveIntegerField(default=0, verbose_name="موجودی")
-    image = models.ImageField(upload_to="products/variants/", blank=True, null=True, verbose_name="تصویر رنگ")
-    is_active = models.BooleanField(default=True, verbose_name="فعال")
-    is_default = models.BooleanField(default=False, verbose_name="تنوع اولیه برای سبدهای قدیمی")
 
-    class Meta:
-        ordering = ["id"]
-        verbose_name = "رنگ و سایز محصول"
-        verbose_name_plural = "رنگ‌ها و سایزهای محصول"
-        constraints = [
-            models.UniqueConstraint(fields=["product", "color", "size"], name="unique_product_color_size"),
-            models.UniqueConstraint(fields=["product"], condition=models.Q(is_default=True), name="one_legacy_default_variant"),
-            models.CheckConstraint(condition=models.Q(price__gte=0), name="variant_price_nonnegative"),
-        ]
-
-    def __str__(self):
-        return f"{self.product.name} — {self.color or 'بدون رنگ'} / {self.size or 'بدون سایز'}"
+# ثبت مدل بنرهای صفحهٔ اصلی.
+from .banner_models import HomepageBanner
