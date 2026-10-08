@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { api, money, imageUrl } from "../lib/api";
 import { useCart } from "../components/cart-context";
+
 import ProductCard from "../components/product-card";
+import HomepageHero from "../components/homepage-hero";
 
 const emptyFilters = {
   search: "",
@@ -21,8 +24,8 @@ export default function Products() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const [form, setForm] = useState(emptyFilters);
-  const [filters, setFilters] = useState(emptyFilters);
+  const [form, setForm] = useState({ ...emptyFilters });
+  const [filters, setFilters] = useState({ ...emptyFilters });
 
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
@@ -37,26 +40,24 @@ export default function Products() {
     title: "همهٔ محصولات",
   });
 
-  const [groups, setGroups] = useState([]);
+  const [featuredCategories, setFeaturedCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState("");
+  const [categoryRetry, setCategoryRetry] = useState(0);
+  const [productRetry, setProductRetry] = useState(0);
 
   const { cart, add, busy } = useCart();
 
   useEffect(() => {
-    let active = true;
-
-    api("menu/categories/")
-      .then((data) => {
-        if (!active) return;
-
-        setGroups(
-          Array.isArray(data) ? data : data.results ?? []
-        );
-      })
-      .catch(() => {});
-
     function selectCategory(event) {
-      setCategory(event.detail);
+      const item = event.detail || {};
+
+      setCategory({
+        slug: item.slug || "",
+        title: item.title || item.name || "محصولات دسته‌بندی",
+      });
+
       setPage(1);
+      setNotice("");
 
       document.getElementById("catalog")?.scrollIntoView({
         behavior: "smooth",
@@ -74,27 +75,52 @@ export default function Products() {
       });
     }
 
-    window.addEventListener(
-      "catalog-category",
-      selectCategory
-    );
+    window.addEventListener("catalog-category", selectCategory);
 
     return () => {
-      active = false;
-
-      window.removeEventListener(
-        "catalog-category",
-        selectCategory
-      );
+      window.removeEventListener("catalog-category", selectCategory);
     };
   }, []);
 
   useEffect(() => {
     let active = true;
 
+    setCategoryError("");
+
+    api("homepage/categories/")
+      .then((data) => {
+        if (!active) return;
+
+        setFeaturedCategories(
+          Array.isArray(data) ? data : data.results ?? []
+        );
+      })
+      .catch((err) => {
+        if (!active) return;
+
+        setFeaturedCategories([]);
+
+        setCategoryError(
+          err.message || "دریافت دسته‌های صفحهٔ اصلی ناموفق بود."
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [categoryRetry]);
+
+  useEffect(() => {
+    let active = true;
+
     api("products/filters/")
       .then((data) => {
-        if (active) setOptions(data);
+        if (!active) return;
+
+        setOptions({
+          colors: data.colors ?? [],
+          materials: data.materials ?? [],
+        });
       })
       .catch(() => {});
 
@@ -123,7 +149,7 @@ export default function Products() {
       params.set("category", category.slug);
     }
 
-    api(`products/?${params}`)
+    api(`products/?${params.toString()}`)
       .then((data) => {
         if (!active) return;
 
@@ -138,6 +164,7 @@ export default function Products() {
 
         setError(err.message);
         setProducts([]);
+        setHasNext(false);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -146,21 +173,38 @@ export default function Products() {
     return () => {
       active = false;
     };
-  }, [filters, page, category.slug]);
+  }, [filters, page, category.slug, productRetry]);
 
-  const featuredCategories = groups
-    .flatMap((group) =>
-      group.children?.length ? group.children : [group]
-    )
-    .slice(0, 4);
+  function updateCategory(item) {
+    const slug = item.slug || "";
 
-  function chooseCategory(item) {
     setCategory({
-      slug: item.slug,
-      title: item.name,
+      slug,
+      title: item.name || item.title || "همهٔ محصولات",
     });
 
     setPage(1);
+    setNotice("");
+
+    const url = new URL(window.location.href);
+
+    if (slug) {
+      url.searchParams.set("category", slug);
+    } else {
+      url.searchParams.delete("category");
+    }
+
+    url.hash = "catalog";
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.toString()
+    );
+  }
+
+  function chooseCategory(item) {
+    updateCategory(item);
 
     document.getElementById("catalog")?.scrollIntoView({
       behavior: "smooth",
@@ -176,9 +220,37 @@ export default function Products() {
     }));
   }
 
+  function changeQuickFilter(event) {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+
+    setFilters((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+
+    setPage(1);
+    setNotice("");
+  }
+
   function apply(event) {
     event.preventDefault();
 
+    if (
+      form.min_price !== "" &&
+      form.max_price !== "" &&
+      Number(form.min_price) > Number(form.max_price)
+    ) {
+      setError("حداقل قیمت نباید از حداکثر قیمت بیشتر باشد.");
+      return;
+    }
+
+    setError("");
+    setNotice("");
     setPage(1);
 
     setFilters({
@@ -188,13 +260,15 @@ export default function Products() {
   }
 
   function reset() {
-    setForm(emptyFilters);
-    setFilters(emptyFilters);
+    setForm({ ...emptyFilters });
+    setFilters({ ...emptyFilters });
     setPage(1);
+    setError("");
+    setNotice("");
   }
 
   function showAllProducts() {
-    setCategory({
+    updateCategory({
       slug: "",
       title: "همهٔ محصولات",
     });
@@ -217,66 +291,30 @@ export default function Products() {
     }
   }
 
+  const hasActiveFilters = Object.entries(filters).some(
+    ([key, value]) => value !== emptyFilters[key]
+  );
+
+  const selectedCategoryInList = featuredCategories.some(
+    (item) => item.slug === category.slug
+  );
+
   return (
     <div className="boutique-home">
-      <section
-        className="boutique-hero"
-        aria-label="مجموعه‌های فروشگاه"
-      >
-        <div className="boutique-main-banner">
-          <img
-            src="/images/home/hero.png"
-            alt="کیف چرمی قهوه‌ای"
-            fetchPriority="high"
-          />
+      <HomepageHero />
 
-          <div className="boutique-hero-copy">
-            <p>فروشگاه محصولات چرمی</p>
+      {categoryError && (
+        <div className="error" role="alert">
+          <p>{categoryError}</p>
 
-            <h1>زیبایی در جزئیات</h1>
-
-            <p>چرم، همراهِ روزهای شما</p>
-
-            <a className="boutique-cta" href="#catalog">
-              مشاهدهٔ محصولات ←
-            </a>
-          </div>
-        </div>
-
-        <div className="boutique-side-banners">
-          <a
-            href="#catalog"
-            className="boutique-small-banner"
+          <button
+            type="button"
+            onClick={() => setCategoryRetry((value) => value + 1)}
           >
-            <img
-              src="/images/home/wallet.png"
-              alt="کیف پول چرمی زرشکی"
-            />
-
-            <div>
-              <h2>جزئیات ماندگار</h2>
-              <p>انتخابی برای هر روز</p>
-              <span>مشاهدهٔ محصولات ←</span>
-            </div>
-          </a>
-
-          <a
-            href="#catalog"
-            className="boutique-small-banner"
-          >
-            <img
-              src="/images/home/crossbody.png"
-              alt="کیف دوشی چرمی مشکی"
-            />
-
-            <div>
-              <h2>همراهِ روزهای شما</h2>
-              <p>سبک و کاربردی</p>
-              <span>مشاهدهٔ محصولات ←</span>
-            </div>
-          </a>
+            تلاش دوباره
+          </button>
         </div>
-      </section>
+      )}
 
       {featuredCategories.length > 0 && (
         <section
@@ -314,14 +352,44 @@ export default function Products() {
       )}
 
       <section
+        className="handmade-story"
+        aria-labelledby="handmade-title"
+      >
+        <div className="handmade-story-content">
+          <span className="handmade-story-label">
+            چرم طبیعی، دوخت دستی
+          </span>
+
+          <h2 id="handmade-title">
+            با دست دوخته شده
+          </h2>
+
+          <p>
+            هر محصول حاصل زمان، دقت و علاقه به چرم طبیعی است.
+            از انتخاب چرم تا آخرین بخیه، جزئیات را با دست
+            می‌سازیم تا همراهی زیبا و ماندگار برای روزهای شما باشد.
+          </p>
+        </div>
+
+        <div className="handmade-story-photo">
+          <img
+            src="/images/home/handmade.jpg"
+            alt="دوخت دستی محصول چرمی با نخ و سوزن"
+            loading="lazy"
+            width="900"
+            height="600"
+          />
+        </div>
+      </section>
+
+      <section
         id="catalog"
         className="boutique-catalog"
+        aria-labelledby="catalog-title"
       >
         <div className="boutique-section-title">
-          <h2>
-            {category.slug
-              ? category.title
-              : "محصولات منتخب"}
+          <h2 id="catalog-title">
+            {category.slug ? category.title : "محصولات منتخب"}
           </h2>
 
           <span aria-hidden="true" />
@@ -334,155 +402,220 @@ export default function Products() {
           </button>
         </div>
 
-        <details className="boutique-filter-panel">
-          <summary>جستجو و فیلتر محصولات</summary>
-
-          <form
-            className="catalog-filters"
-            onSubmit={apply}
-          >
-            <label className="filter-search">
-              جستجو
+        <form
+          className="catalog-search-form"
+          onSubmit={apply}
+          role="search"
+        >
+          <div className="catalog-toolbar">
+            <div className="catalog-search-input">
+              <button
+                type="submit"
+                aria-label="جستجوی محصولات"
+                title="جستجو"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="10.5" cy="10.5" r="7" />
+                  <path d="m16 16 4.5 4.5" />
+                </svg>
+              </button>
 
               <input
                 type="search"
                 name="search"
+                aria-label="جستجوی محصول"
+                placeholder="جستجو در محصولات…"
+                maxLength={100}
                 value={form.search}
                 onChange={change}
-                maxLength={100}
-                placeholder="نام، جنس، رنگ یا دسته‌بندی…"
               />
-            </label>
+            </div>
 
-            {[
-              ["material", "جنس", options.materials],
-              ["color", "رنگ", options.colors],
-            ].map(([key, label, values]) => (
-              <label key={key}>
-                {label}
+            <div className="catalog-quick-filters">
+              <select
+                aria-label="دسته‌بندی"
+                value={category.slug}
+                onChange={(event) => {
+                  const slug = event.target.value;
+
+                  const item = featuredCategories.find(
+                    (entry) => entry.slug === slug
+                  );
+
+                  updateCategory({
+                    slug,
+                    title: item?.name || "همهٔ محصولات",
+                  });
+                }}
+              >
+                <option value="">دسته‌بندی: همه</option>
+
+                {category.slug && !selectedCategoryInList && (
+                  <option value={category.slug}>
+                    {category.title}
+                  </option>
+                )}
+
+                {featuredCategories.map((item) => (
+                  <option key={item.id} value={item.slug}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="color"
+                aria-label="رنگ محصول"
+                value={form.color}
+                onChange={changeQuickFilter}
+              >
+                <option value="">رنگ: همه</option>
+
+                {options.colors.map((color) => (
+                  <option key={color} value={color}>
+                    {color}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="ordering"
+                aria-label="مرتب‌سازی محصولات"
+                value={form.ordering}
+                onChange={changeQuickFilter}
+              >
+                <option value="-created_at">جدیدترین</option>
+                <option value="created_at">قدیمی‌ترین</option>
+                <option value="price">ارزان‌ترین</option>
+                <option value="-price">گران‌ترین</option>
+              </select>
+            </div>
+          </div>
+
+          <details className="catalog-extra-filters">
+            <summary>فیلترهای بیشتر</summary>
+
+            <div className="catalog-extra-grid">
+              <label>
+                جنس محصول
 
                 <select
-                  name={key}
-                  value={form[key]}
+                  name="material"
+                  value={form.material}
                   onChange={change}
                 >
-                  <option value="">همه</option>
+                  <option value="">همهٔ جنس‌ها</option>
 
-                  {(values ?? []).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
+                  {options.materials.map((material) => (
+                    <option key={material} value={material}>
+                      {material}
                     </option>
                   ))}
                 </select>
               </label>
-            ))}
 
-            <label>
-              حداقل قیمت
+              <label>
+                حداقل قیمت
 
-              <input
-                type="number"
-                min="0"
-                step="1"
-                name="min_price"
-                value={form.min_price}
-                onChange={change}
-              />
-            </label>
+                <input
+                  type="number"
+                  name="min_price"
+                  min="0"
+                  step="1"
+                  placeholder="از"
+                  value={form.min_price}
+                  onChange={change}
+                />
+              </label>
 
-            <label>
-              حداکثر قیمت
+              <label>
+                حداکثر قیمت
 
-              <input
-                type="number"
-                min="0"
-                step="1"
-                name="max_price"
-                value={form.max_price}
-                onChange={change}
-              />
-            </label>
+                <input
+                  type="number"
+                  name="max_price"
+                  min="0"
+                  step="1"
+                  placeholder="تا"
+                  value={form.max_price}
+                  onChange={change}
+                />
+              </label>
 
-            <label>
-              مرتب‌سازی
+              <label className="catalog-available">
+                <input
+                  type="checkbox"
+                  name="available"
+                  checked={form.available}
+                  onChange={change}
+                />
 
-              <select
-                name="ordering"
-                value={form.ordering}
-                onChange={change}
+                فقط محصولات موجود
+              </label>
+
+              <button
+                type="submit"
+                className="catalog-apply-button"
               >
-                <option value="-created_at">
-                  جدیدترین
-                </option>
+                اعمال فیلتر
+              </button>
 
-                <option value="created_at">
-                  قدیمی‌ترین
-                </option>
+              <button
+                type="button"
+                className="catalog-reset-button"
+                onClick={reset}
+              >
+                پاک کردن فیلترها
+              </button>
+            </div>
+          </details>
+        </form>
 
-                <option value="price">
-                  ارزان‌ترین
-                </option>
+        {(category.slug || hasActiveFilters) && (
+          <div className="catalog-active-filters">
+            {category.slug && <span>{category.title}</span>}
 
-                <option value="-price">
-                  گران‌ترین
-                </option>
-              </select>
-            </label>
-
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                name="available"
-                checked={form.available}
-                onChange={change}
-              />
-
-              فقط موجودها
-            </label>
-
-            <button type="submit">
-              اعمال فیلتر
-            </button>
-
-            <button
-              type="button"
-              className="plain-button"
-              onClick={reset}
-            >
-              پاک کردن فیلترها
-            </button>
-          </form>
-        </details>
-
-        {category.slug && (
-          <div className="selected-category">
-            <h2>{category.title}</h2>
+            {filters.search && (
+              <span>جستجو: {filters.search}</span>
+            )}
 
             <button
               type="button"
               onClick={showAllProducts}
             >
-              همهٔ محصولات ×
+              پاک کردن انتخاب‌ها ×
             </button>
           </div>
         )}
 
         <div aria-live="polite">
-          {notice && (
-            <p className="success">{notice}</p>
-          )}
+          {notice && <p className="success">{notice}</p>}
 
           {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
+            <div className="error" role="alert">
+              <p>{error}</p>
+
+              <button
+                type="button"
+                onClick={() => setProductRetry((value) => value + 1)}
+              >
+                تلاش دوباره
+              </button>
+            </div>
           )}
         </div>
 
         {loading ? (
-          <p role="status">
-            در حال دریافت محصولات…
-          </p>
+          <p role="status">در حال دریافت محصولات…</p>
         ) : (
           <>
             <div className="grid compact-products luxury-products">
@@ -493,11 +626,7 @@ export default function Products() {
                   cart={cart}
                   busy={busy}
                   onAdd={(variantId, quantity) =>
-                    addProduct(
-                      product,
-                      variantId,
-                      quantity
-                    )
+                    addProduct(product, variantId, quantity)
                   }
                 />
               ))}
@@ -514,9 +643,7 @@ export default function Products() {
                 <button
                   type="button"
                   disabled={page === 1}
-                  onClick={() =>
-                    setPage((value) => value - 1)
-                  }
+                  onClick={() => setPage((value) => value - 1)}
                 >
                   صفحهٔ قبل
                 </button>
@@ -526,9 +653,7 @@ export default function Products() {
                 <button
                   type="button"
                   disabled={!hasNext}
-                  onClick={() =>
-                    setPage((value) => value + 1)
-                  }
+                  onClick={() => setPage((value) => value + 1)}
                 >
                   صفحهٔ بعد
                 </button>

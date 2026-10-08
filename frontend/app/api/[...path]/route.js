@@ -9,7 +9,7 @@ async function proxy(request, context) {
   const pathname = path.join("/");
 
   const allowed =
-    /^(store(?:\/.*)?|locations\/?|products(?:\/.*)?|categories(?:\/.*)?|orders(?:\/.*)?|shipping-methods\/?|auth(?:\/.*)?|account(?:\/.*)?|cart(?:\/.*)?|media(?:\/.*)?|menu\/categories\/?)$/.test(
+    /^(store(?:\/.*)?|locations\/?|products(?:\/.*)?|categories(?:\/.*)?|homepage\/categories\/?|orders(?:\/.*)?|shipping-methods\/?|auth(?:\/.*)?|account(?:\/.*)?|cart(?:\/.*)?|media(?:\/.*)?|menu\/categories\/?)$/.test(
       pathname
     );
 
@@ -37,7 +37,9 @@ async function proxy(request, context) {
     );
   }
 
-  const encodedPath = path.map(encodeURIComponent).join("/");
+  const encodedPath = path
+    .map(encodeURIComponent)
+    .join("/");
 
   const url = new URL(
     `${isMedia ? "/" : "/api/"}${encodedPath}${
@@ -59,7 +61,9 @@ async function proxy(request, context) {
   ]) {
     const value = request.headers.get(name);
 
-    if (value) headers.set(name, value);
+    if (value) {
+      headers.set(name, value);
+    }
   }
 
   try {
@@ -78,7 +82,8 @@ async function proxy(request, context) {
       "Cache-Control": "no-store",
     });
 
-    const contentType = upstream.headers.get("content-type");
+    const contentType =
+      upstream.headers.get("content-type");
 
     if (contentType) {
       outgoing.set("content-type", contentType);

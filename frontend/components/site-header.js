@@ -6,7 +6,7 @@ import { useAuth } from "./auth-context";
 
 export default function SiteHeader() {
   const { session } = useAuth();
-  const authenticated = session?.authenticated;
+  const authenticated = Boolean(session?.authenticated);
 
   function selectCategory(value) {
     if (window.location.pathname === "/") {
@@ -16,18 +16,21 @@ export default function SiteHeader() {
         })
       );
 
+      document.getElementById("catalog")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
       return;
     }
 
     window.location.assign(
-      value.slug
-        ? `/?category=${encodeURIComponent(value.slug)}#catalog`
-        : "/#catalog"
+      `/?category=${encodeURIComponent(value.slug)}#catalog`
     );
   }
 
   return (
-    <header className="boutique-header">
+    <header className="boutique-header responsive-store-header">
       <Link
         className="brand site-logo"
         href="/"
@@ -51,14 +54,10 @@ export default function SiteHeader() {
           className="header-icon"
           href={authenticated ? "/profile" : "/login"}
           aria-label={
-            authenticated
-              ? "پروفایل کاربری"
-              : "ورود به حساب"
+            authenticated ? "پروفایل کاربری" : "ورود به حساب"
           }
           title={
-            authenticated
-              ? "پروفایل کاربری"
-              : "ورود به حساب"
+            authenticated ? "پروفایل کاربری" : "ورود به حساب"
           }
         >
           <svg

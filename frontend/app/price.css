@@ -1,0 +1,72 @@
+/* قیمت اصلی صفحهٔ محصول */
+.pd-page .pd-price {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 5px;
+
+  width: auto;
+  margin: 0;
+  padding: 0;
+
+  direction: rtl;
+  white-space: nowrap;
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+.pd-page .pd-price strong {
+  margin: 0;
+  padding: 0;
+
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: normal;
+  line-height: 1.5;
+
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+.pd-page .pd-price > :not(strong) {
+  margin: 0;
+  padding: 0;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+/* قیمت نوار خرید پایین صفحه */
+.pd-page .pd-sticky-name > span {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+.pd-page .pd-sticky-name > span > * {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+@media (max-width: 760px) {
+  .pd-page .pd-price strong {
+    font-size: 20px;
+  }
+
+  .pd-page .pd-price > :not(strong) {
+    font-size: 12px;
+  }
+}

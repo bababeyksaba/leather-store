@@ -714,3 +714,733 @@ header.boutique-header {
   font-size: 11px;
   line-height: 22px;
 }
+.boutique-home .boutique-hero-copy h1 {
+  color: #ffffff;
+  font-size: clamp(20px, 3vw, 40px);
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 12px 0 20px;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 600px) {
+  .boutique-home .boutique-hero-copy h1 {
+    font-size: clamp(15px, 8vw, 20px);
+    margin: 10px 0 16px;
+  }
+}
+/* نوار جستجو و فیلتر محصولات */
+
+.boutique-home .catalog-search-form {
+  margin: 0 0 26px;
+  direction: rtl;
+}
+
+.boutique-home .catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.boutique-home .catalog-search-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 10px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.boutique-home .catalog-search-input:focus-within {
+  border-color: #b87562;
+  box-shadow: 0 0 0 3px rgb(184 117 98 / 10%);
+}
+
+.boutique-home .catalog-search-input input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  color: #292421;
+  font: inherit;
+  font-size: 14px;
+  text-align: right;
+}
+
+.boutique-home .catalog-search-input input::placeholder {
+  color: #938780;
+}
+
+.boutique-home .catalog-search-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: #292421;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-search-input button:hover {
+  background: #faf7f2;
+  color: #b87562;
+}
+
+.boutique-home .catalog-search-input button:focus-visible {
+  outline: 2px solid #b87562;
+  outline-offset: 2px;
+}
+
+.boutique-home .catalog-quick-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-height: 52px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.boutique-home .catalog-quick-filters select {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #51453f;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-quick-filters select + select {
+  border-right: 1px solid #e8ded5;
+}
+
+.boutique-home .catalog-quick-filters select:focus-visible {
+  outline: 2px solid #b87562;
+  outline-offset: -3px;
+}
+
+.boutique-home .catalog-extra-filters {
+  margin-top: 12px;
+}
+
+.boutique-home .catalog-extra-filters summary {
+  width: fit-content;
+  padding: 6px 0;
+  color: #8d5b4a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 20px;
+  background: #faf7f2;
+  border: 1px solid #e8ded5;
+  border-radius: 12px;
+}
+
+.boutique-home .catalog-extra-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  color: #51453f;
+  font-size: 13px;
+}
+
+.boutique-home .catalog-extra-grid select,
+.boutique-home .catalog-extra-grid input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 8px;
+  color: #292421;
+  font: inherit;
+}
+
+.boutique-home .catalog-extra-grid .catalog-available {
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+}
+
+.boutique-home .catalog-available input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #b87562;
+}
+
+.boutique-home .catalog-apply-button,
+.boutique-home .catalog-reset-button {
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-apply-button {
+  background: #b87562;
+  border: 1px solid #b87562;
+  color: #fff;
+}
+
+.boutique-home .catalog-apply-button:hover {
+  background: #a56452;
+}
+
+.boutique-home .catalog-reset-button {
+  background: transparent;
+  border: 1px solid #decfc5;
+  color: #795b4e;
+}
+
+.boutique-home .catalog-reset-button:hover {
+  background: #f1e9e2;
+}
+
+.boutique-home .catalog-active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+
+.boutique-home .catalog-active-filters span {
+  padding: 7px 12px;
+  background: #f3e9e2;
+  border-radius: 20px;
+  color: #795b4e;
+}
+
+.boutique-home .catalog-active-filters button {
+  padding: 6px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #a56452;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .boutique-home .catalog-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .boutique-home .catalog-search-form {
+    margin-bottom: 20px;
+  }
+
+  .boutique-home .catalog-search-input {
+    min-height: 48px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .boutique-home .catalog-search-input input {
+    font-size: 13px;
+  }
+
+  .boutique-home .catalog-quick-filters {
+    min-height: 46px;
+  }
+
+  .boutique-home .catalog-quick-filters select {
+    padding: 10px 5px;
+    font-size: 12px;
+  }
+
+  .boutique-home .catalog-extra-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .boutique-home .catalog-extra-grid .catalog-available {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 380px) {
+  .boutique-home .catalog-extra-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.boutique-home .catalog-quick-filters {
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.boutique-home .catalog-quick-filters select {
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 10px;
+}
+
+.boutique-home .catalog-quick-filters select + select {
+  border-right: 1px solid #e8ded5;
+}
+
+@media (max-width: 600px) {
+  .boutique-home .catalog-quick-filters {
+    gap: 8px;
+  }
+}
+/* جستجو و فیلتر محصولات */
+
+.boutique-home .catalog-search-form {
+  margin: 0 0 26px;
+  direction: rtl;
+}
+
+.boutique-home .catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.boutique-home .catalog-search-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 10px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.boutique-home .catalog-search-input:focus-within {
+  border-color: #b87562;
+  box-shadow: 0 0 0 3px rgb(184 117 98 / 10%);
+}
+
+.boutique-home .catalog-search-input input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  color: #292421;
+  font: inherit;
+  font-size: 14px;
+  text-align: right;
+}
+
+.boutique-home .catalog-search-input input::placeholder {
+  color: #938780;
+}
+
+.boutique-home .catalog-search-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: #292421;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-search-input button:hover {
+  background: #faf7f2;
+  color: #b87562;
+}
+
+.boutique-home .catalog-search-input button:focus-visible {
+  outline: 2px solid #b87562;
+  outline-offset: 2px;
+}
+
+.boutique-home .catalog-quick-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-height: 52px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.boutique-home .catalog-quick-filters select {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 10px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 10px;
+  box-shadow: none;
+  color: #51453f;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-quick-filters select:focus-visible {
+  outline: 2px solid #b87562;
+  outline-offset: 2px;
+}
+
+.boutique-home .catalog-extra-filters {
+  margin-top: 12px;
+}
+
+.boutique-home .catalog-extra-filters summary {
+  width: fit-content;
+  padding: 6px 0;
+  color: #8d5b4a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 20px;
+  background: #faf7f2;
+  border: 1px solid #e8ded5;
+  border-radius: 12px;
+}
+
+.boutique-home .catalog-extra-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  color: #51453f;
+  font-size: 13px;
+}
+
+.boutique-home .catalog-extra-grid select,
+.boutique-home .catalog-extra-grid input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e8ded5;
+  border-radius: 8px;
+  color: #292421;
+  font: inherit;
+}
+
+.boutique-home .catalog-extra-grid .catalog-available {
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+}
+
+.boutique-home .catalog-available input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #b87562;
+}
+
+.boutique-home .catalog-apply-button,
+.boutique-home .catalog-reset-button {
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.boutique-home .catalog-apply-button {
+  background: #b87562;
+  border: 1px solid #b87562;
+  color: #fff;
+}
+
+.boutique-home .catalog-apply-button:hover {
+  background: #a56452;
+}
+
+.boutique-home .catalog-reset-button {
+  background: transparent;
+  border: 1px solid #decfc5;
+  color: #795b4e;
+}
+
+.boutique-home .catalog-reset-button:hover {
+  background: #f1e9e2;
+}
+
+.boutique-home .catalog-active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+
+.boutique-home .catalog-active-filters span {
+  padding: 7px 12px;
+  background: #f3e9e2;
+  border-radius: 20px;
+  color: #795b4e;
+}
+
+.boutique-home .catalog-active-filters button {
+  padding: 6px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #a56452;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* معرفی محصولات دست‌دوز */
+
+.boutique-home .handmade-story {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  align-items: stretch;
+  margin: 36px 0 48px;
+  background: #faf7f2;
+  border: 1px solid #e8ded5;
+  border-radius: 16px;
+  overflow: hidden;
+  direction: rtl;
+}
+
+.boutique-home .handmade-story-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: clamp(24px, 4vw, 54px);
+}
+
+.boutique-home .handmade-story-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #a56452;
+  font-size: 12px;
+}
+
+.boutique-home .handmade-story-label::after {
+  content: "";
+  width: 48px;
+  height: 1px;
+  background: #d9b8a7;
+}
+
+.boutique-home .handmade-story-content h2 {
+  margin: 16px 0;
+  color: #39261d;
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.boutique-home .handmade-story-content p {
+  max-width: 480px;
+  margin: 0;
+  color: #69564b;
+  font-size: 15px;
+  line-height: 2.2;
+}
+
+.boutique-home .handmade-story-photo {
+  min-width: 0;
+  min-height: 300px;
+  background: #eee5db;
+}
+
+.boutique-home .handmade-story-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+/* تبلت */
+
+@media (max-width: 900px) {
+  .boutique-home .catalog-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* بخش دست‌دوز در موبایل */
+
+@media (max-width: 700px) {
+  .boutique-home .handmade-story {
+    grid-template-columns: 1fr;
+    margin: 24px 0 32px;
+    border-radius: 12px;
+  }
+
+  .boutique-home .handmade-story-photo {
+    grid-row: 1;
+    min-height: 0;
+    aspect-ratio: 3 / 2;
+  }
+
+  .boutique-home .handmade-story-content {
+    padding: 24px 20px;
+  }
+
+  .boutique-home .handmade-story-content h2 {
+    margin: 12px 0;
+    font-size: 28px;
+  }
+
+  .boutique-home .handmade-story-content p {
+    font-size: 14px;
+    line-height: 2;
+  }
+}
+
+/* جستجو در موبایل */
+
+@media (max-width: 600px) {
+  .boutique-home .catalog-search-form {
+    margin-bottom: 20px;
+  }
+
+  .boutique-home .catalog-search-input {
+    min-height: 48px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .boutique-home .catalog-search-input input {
+    font-size: 13px;
+  }
+
+  .boutique-home .catalog-quick-filters {
+    gap: 8px;
+    min-height: 46px;
+  }
+
+  .boutique-home .catalog-quick-filters select {
+    padding: 10px 5px;
+    font-size: 12px;
+  }
+
+  .boutique-home .catalog-extra-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .boutique-home .catalog-extra-grid .catalog-available {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 380px) {
+  .boutique-home .catalog-extra-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.boutique-home .homepage-linked-banner {
+  display: block;
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+}
+
+.boutique-home a.homepage-linked-banner {
+  cursor: pointer;
+}
+
+.boutique-home a.homepage-linked-banner:focus-visible {
+  outline: 3px solid #b87562;
+  outline-offset: 4px;
+}
+
+.boutique-home .homepage-linked-banner .boutique-cta {
+  display: inline-block;
+  padding: 0 0 5px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 0;
+  color: #fff;
+  box-shadow: none;
+}
+
+.boutique-home a.homepage-linked-banner:hover .boutique-cta {
+  border-bottom-color: #fff;
+}
+.boutique-home .handmade-story,
+.boutique-home .handmade-story-content,
+.boutique-home .handmade-story-photo {
+  background: #fff;
+}

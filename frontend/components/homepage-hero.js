@@ -1,0 +1,201 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { api } from "../lib/api";
+
+const banners = [
+  {
+    position: "main",
+    image: "/images/home/hero.png",
+    alt: "کیف چرمی قهوه‌ای دست‌دوز",
+    title: "زیبایی در جزئیات",
+    description: "چرم، همراهِ روزهای شما",
+  },
+  {
+    position: "wallet",
+    image: "/images/home/wallet.png",
+    alt: "کیف پول چرمی زرشکی",
+    title: "جزئیات ماندگار",
+    description: "انتخابی برای هر روز",
+  },
+  {
+    position: "crossbody",
+    image: "/images/home/crossbody.png",
+    alt: "کیف دوشی چرمی مشکی",
+    title: "همراهِ روزهای شما",
+    description: "سبک و کاربردی",
+  },
+];
+
+export default function HomepageHero() {
+  const [destinations, setDestinations] = useState({});
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    setError("");
+
+    api("products/homepage/banners/")
+      .then((data) => {
+        if (!active) return;
+
+        const rows = Array.isArray(data)
+          ? data
+          : data.results ?? [];
+
+        const result = {};
+
+        rows.forEach((item) => {
+          result[item.position] = item;
+        });
+
+        setDestinations(result);
+      })
+      .catch((err) => {
+        if (!active) return;
+
+        setDestinations({});
+        setError(
+          err.message || "دریافت لینک بنرها ناموفق بود."
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [retry]);
+
+  function selectCategory(event, destination) {
+    // باز کردن لینک در تب جدید همچنان امکان‌پذیر است.
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const url = new URL(window.location.href);
+
+    url.searchParams.set(
+      "category",
+      destination.category_slug
+    );
+
+    url.hash = "catalog";
+
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.toString()
+    );
+
+    window.dispatchEvent(
+      new CustomEvent("catalog-category", {
+        detail: {
+          slug: destination.category_slug,
+          title: destination.category_name,
+        },
+      })
+    );
+  }
+
+  function renderBanner(banner) {
+    const destination = destinations[banner.position];
+    const main = banner.position === "main";
+
+    const className = main
+      ? "boutique-main-banner homepage-linked-banner"
+      : "boutique-small-banner homepage-linked-banner";
+
+    const content = (
+      <>
+        <img
+          src={banner.image}
+          alt={banner.alt}
+          fetchPriority={main ? "high" : undefined}
+        />
+
+        <div className={main ? "boutique-hero-copy" : undefined}>
+          {main && <p>فروشگاه چرم طبیعی دست‌دوز</p>}
+
+          {main ? (
+            <h1>{banner.title}</h1>
+          ) : (
+            <h2>{banner.title}</h2>
+          )}
+
+          <p>{banner.description}</p>
+
+          {destination && (
+            <span
+              className={main ? "boutique-cta" : undefined}
+            >
+              مشاهدهٔ محصولات ←
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    // بنر بدون مقصد، صرفاً تصویر است و لینک اشتباه ندارد.
+    if (!destination) {
+      return (
+        <div key={banner.position} className={className}>
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <a
+        key={banner.position}
+        className={className}
+        href={`/?category=${encodeURIComponent(
+          destination.category_slug
+        )}#catalog`}
+        aria-label={`مشاهدهٔ محصولات ${destination.category_name}`}
+        onClick={(event) =>
+          selectCategory(event, destination)
+        }
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <>
+      <section
+        className="boutique-hero"
+        aria-label="مجموعه‌های فروشگاه"
+      >
+        {renderBanner(banners[0])}
+
+        <div className="boutique-side-banners">
+          {banners.slice(1).map(renderBanner)}
+        </div>
+      </section>
+
+      {error && (
+        <div className="error" role="alert">
+          <p>{error}</p>
+
+          <button
+            type="button"
+            onClick={() => setRetry((value) => value + 1)}
+          >
+            تلاش دوباره
+          </button>
+        </div>
+      )}
+    </>
+  );
+}

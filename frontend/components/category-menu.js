@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, imageUrl } from "../lib/api";
+import "./category-menu.css";
 
 function containsCategory(category, slug) {
-  if (!slug) return false;
-
-  return (
-    category.slug === slug ||
-    (category.children ?? []).some((child) =>
-      containsCategory(child, slug)
-    )
+  return Boolean(
+    slug &&
+      (category.slug === slug ||
+        (category.children ?? []).some((child) =>
+          containsCategory(child, slug)
+        ))
   );
 }
 
@@ -30,7 +30,7 @@ function CategoryImage({ image, title }) {
   }, [src]);
 
   return (
-    <span className="category-menu-image">
+    <div className="store-menu-image">
       {src && !failed ? (
         <img
           src={src}
@@ -39,43 +39,28 @@ function CategoryImage({ image, title }) {
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className="category-image-placeholder">
-          {title}
-        </span>
+        <span>{title}</span>
       )}
-    </span>
+    </div>
   );
 }
 
-function CategoryBranch({
-  category,
-  selectedSlug,
-  onSelect,
-}) {
-  const descendants = flattenCategories(
-    category.children ?? []
-  );
+function CategoryBranch({ category, selectedSlug, onSelect }) {
+  const descendants = flattenCategories(category.children ?? []);
 
   return (
-    <div className="category-column">
-      <div className="category-menu-card">
-        <CategoryImage
-          image={category.image}
-          title={category.name}
-        />
+    <section className="store-menu-column">
+      <CategoryImage image={category.image} title={category.name} />
 
-        <h3 className="category-menu-title">
-          {category.name}
-        </h3>
-      </div>
+      {/* عنوان این دسته، مطابق درخواست قبلی لینک نیست. */}
+      <h3 className="store-menu-title">{category.name}</h3>
 
       {descendants.length > 0 && (
-        <ul className="category-text-list">
+        <ul className="store-menu-links">
           {descendants.map((child) => (
             <li key={child.id}>
               <button
                 type="button"
-                className="category-text-link"
                 aria-pressed={selectedSlug === child.slug}
                 onClick={() => onSelect(child)}
               >
@@ -88,12 +73,13 @@ function CategoryBranch({
 
       <button
         type="button"
-        className="category-view-all"
+        className="store-menu-view"
         onClick={() => onSelect(category)}
       >
-        نمایش همه ←
+        نمایش محصولات
+        <span aria-hidden="true">←</span>
       </button>
-    </div>
+    </section>
   );
 }
 
@@ -104,56 +90,91 @@ export default function CategoryMenu({
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [openGroup, setOpenGroup] = useState(null);
   const [retry, setRetry] = useState(0);
+  const [openGroup, setOpenGroup] = useState(null);
+  const [mobile, setMobile] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const menuRef = useRef(null);
-  const triggerRefs = useRef({});
-  const closeTimer = useRef(null);
+  const rootRef = useRef(null);
+  const drawerRef = useRef(null);
+  const toggleRef = useRef(null);
+  const closeRef = useRef(null);
+  const triggersRef = useRef({});
+  const timerRef = useRef(null);
 
   function cancelClose() {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
   }
 
-  function supportsHover() {
-    return window.matchMedia(
-      "(hover: hover) and (pointer: fine)"
-    ).matches;
-  }
-
-  function openWithMouse(groupId) {
-    if (!supportsHover()) return;
-
+  function closeDrawer() {
     cancelClose();
-    setOpenGroup(groupId);
+    setDrawerOpen(false);
+    setOpenGroup(null);
+    toggleRef.current?.focus();
   }
 
-  function scheduleClose() {
-    if (!supportsHover()) return;
+  function closeGroup() {
+    cancelClose();
+    const previous = openGroup;
+    setOpenGroup(null);
+    triggersRef.current[previous]?.focus();
+  }
 
-    // هنگام استفاده از صفحه‌کلید، منوی دارای فوکوس باز بماند.
+  function selectCategory(category) {
+    cancelClose();
+    setOpenGroup(null);
+    setDrawerOpen(false);
+
+    if (mobile) {
+      toggleRef.current?.focus();
+    }
+
+    onSelect({
+      slug: category.slug,
+      title: category.name,
+    });
+  }
+
+  function openWithMouse(id) {
     if (
-      menuRef.current?.contains(document.activeElement)
+      mobile ||
+      !window.matchMedia("(hover: hover) and (pointer: fine)").matches
     ) {
       return;
     }
 
     cancelClose();
+    setOpenGroup(id);
+  }
 
-    closeTimer.current = setTimeout(() => {
-      setOpenGroup(null);
-      closeTimer.current = null;
-    }, 200);
+  function scheduleClose() {
+    if (mobile) return;
+
+    cancelClose();
+
+    timerRef.current = setTimeout(() => {
+      if (!rootRef.current?.contains(document.activeElement)) {
+        setOpenGroup(null);
+      }
+    }, 180);
   }
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+
+    function sync() {
+      setMobile(media.matches);
+      setDrawerOpen(false);
+      setOpenGroup(null);
+    }
+
+    sync();
+    media.addEventListener("change", sync);
+
     return () => {
-      if (closeTimer.current !== null) {
-        clearTimeout(closeTimer.current);
-      }
+      media.removeEventListener("change", sync);
+      clearTimeout(timerRef.current);
     };
   }, []);
 
@@ -165,18 +186,14 @@ export default function CategoryMenu({
 
     api("menu/categories/")
       .then((data) => {
-        if (!active) return;
-
-        setGroups(
-          Array.isArray(data) ? data : data.results ?? []
-        );
+        if (active) {
+          setGroups(Array.isArray(data) ? data : data.results ?? []);
+        }
       })
       .catch((err) => {
-        if (!active) return;
-
-        setError(
-          err.message || "دریافت دسته‌بندی‌ها ناموفق بود."
-        );
+        if (active) {
+          setError(err.message || "دریافت دسته‌بندی‌ها ناموفق بود.");
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -188,238 +205,273 @@ export default function CategoryMenu({
   }, [retry]);
 
   useEffect(() => {
-    function handleOutsideClick(event) {
-      if (!menuRef.current?.contains(event.target)) {
+    function handleOutside(event) {
+      if (!rootRef.current?.contains(event.target)) {
         cancelClose();
         setOpenGroup(null);
       }
     }
 
     function handleEscape(event) {
-      if (
-        event.key === "Escape" &&
-        openGroup !== null
-      ) {
-        cancelClose();
-        setOpenGroup(null);
-        triggerRefs.current[openGroup]?.focus();
+      if (event.key !== "Escape") return;
+
+      if (drawerOpen) {
+        closeDrawer();
+      } else if (openGroup !== null) {
+        closeGroup();
       }
     }
 
-    document.addEventListener(
-      "pointerdown",
-      handleOutsideClick
-    );
-
-    document.addEventListener(
-      "keydown",
-      handleEscape
-    );
+    document.addEventListener("pointerdown", handleOutside);
+    document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener(
-        "pointerdown",
-        handleOutsideClick
-      );
-
-      document.removeEventListener(
-        "keydown",
-        handleEscape
-      );
+      document.removeEventListener("pointerdown", handleOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
-  }, [openGroup]);
+  }, [drawerOpen, openGroup]);
 
-  function closePanel() {
-    cancelClose();
+  useEffect(() => {
+    if (!mobile || !drawerOpen) return;
 
-    const previousGroup = openGroup;
-    setOpenGroup(null);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
 
-    if (previousGroup !== null) {
-      triggerRefs.current[previousGroup]?.focus();
+    function trapFocus(event) {
+      if (event.key !== "Tab") return;
+
+      const elements = Array.from(
+        drawerRef.current?.querySelectorAll(
+          'button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]'
+        ) ?? []
+      ).filter((element) => element.getClientRects().length > 0);
+
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+
+      if (!first) {
+        event.preventDefault();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
-  }
 
-  function selectCategory(category) {
-    cancelClose();
+    document.addEventListener("keydown", trapFocus);
 
-    onSelect({
-      slug: category.slug,
-      title: category.name,
-    });
-
-    closePanel();
-  }
-
-  function selectAllProducts() {
-    cancelClose();
-
-    onSelect({
-      slug: "",
-      title: "همهٔ محصولات",
-    });
-
-    setOpenGroup(null);
-  }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", trapFocus);
+    };
+  }, [mobile, drawerOpen]);
 
   return (
-    <nav
-      className="category-menu"
-      aria-label="دسته‌بندی محصولات"
-      ref={menuRef}
-      onMouseEnter={cancelClose}
-      onMouseLeave={scheduleClose}
-      onBlur={(event) => {
-        if (
-          !event.currentTarget.contains(
-            event.relatedTarget
-          )
-        ) {
-          cancelClose();
-          setOpenGroup(null);
-        }
-      }}
-    >
-      <div className="category-menu-bar">
-        <button
-          type="button"
-          className={`category-menu-trigger ${
-            !selectedSlug ? "is-selected" : ""
-          }`}
-          onMouseEnter={() => openWithMouse(null)}
-          onClick={selectAllProducts}
+    <div className="store-navigation" ref={rootRef}>
+      <button
+        ref={toggleRef}
+        type="button"
+        className="store-menu-toggle"
+        aria-label="باز کردن منوی محصولات"
+        aria-expanded={drawerOpen}
+        aria-controls="store-category-navigation"
+        onClick={() => setDrawerOpen(true)}
+      >
+        <svg
+          width="25"
+          height="25"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          aria-hidden="true"
         >
-          همهٔ محصولات
-        </button>
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
 
-        {groups.map((group) => {
-          const hasChildren =
-            (group.children ?? []).length > 0;
-
-          const selected = containsCategory(
-            group,
-            selectedSlug
-          );
-
-          const expanded = openGroup === group.id;
-
-          return (
-            <button
-              key={group.id}
-              ref={(element) => {
-                triggerRefs.current[group.id] = element;
-              }}
-              type="button"
-              className={`category-menu-trigger ${
-                selected ? "is-selected" : ""
-              }`}
-              aria-expanded={
-                hasChildren ? expanded : undefined
-              }
-              aria-controls={
-                hasChildren
-                  ? `category-panel-${group.id}`
-                  : undefined
-              }
-              onMouseEnter={() => {
-                openWithMouse(
-                  hasChildren ? group.id : null
-                );
-              }}
-              onClick={(event) => {
-                cancelClose();
-
-                if (!hasChildren) {
-                  selectCategory(group);
-                  return;
-                }
-
-                // کلیک موس روی عنوان، منوی باز را نبندد.
-                // لمس و فعال‌سازی با صفحه‌کلید حالت را تغییر دهند.
-                if (
-                  supportsHover() &&
-                  event.detail > 0
-                ) {
-                  setOpenGroup(group.id);
-                } else {
-                  setOpenGroup(
-                    expanded ? null : group.id
-                  );
-                }
-              }}
-            >
-              {group.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {loading && (
-        <p role="status">
-          در حال دریافت دسته‌بندی‌ها…
-        </p>
+      {mobile && drawerOpen && (
+        <div
+          className="store-menu-backdrop"
+          aria-hidden="true"
+          onClick={closeDrawer}
+        />
       )}
 
-      {error && (
-        <p className="error" role="alert">
-          دریافت منو ناموفق بود: {error}
+      <div
+        id="store-category-navigation"
+        ref={drawerRef}
+        className={`store-menu-surface ${
+          drawerOpen ? "is-open" : ""
+        }`}
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile && drawerOpen ? true : undefined}
+        aria-label="منوی محصولات"
+        hidden={mobile && !drawerOpen}
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
+        onBlur={(event) => {
+          if (
+            !mobile &&
+            !event.currentTarget.contains(event.relatedTarget)
+          ) {
+            cancelClose();
+            setOpenGroup(null);
+          }
+        }}
+      >
+        <div className="store-drawer-heading">
+          <strong>دسته‌بندی محصولات</strong>
 
           <button
+            ref={closeRef}
             type="button"
-            disabled={loading}
-            onClick={() => {
-              setRetry((value) => value + 1);
-            }}
+            className="store-menu-icon"
+            aria-label="بستن منو"
+            onClick={closeDrawer}
           >
-            تلاش دوباره
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              aria-hidden="true"
+            >
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
           </button>
-        </p>
-      )}
+        </div>
 
-      {groups.map((group) => {
-        if (!group.children?.length) return null;
+        <nav className="store-menu-nav" aria-label="دسته‌بندی محصولات">
+          {loading && (
+            <p className="store-menu-status" role="status">
+              در حال دریافت دسته‌بندی‌ها…
+            </p>
+          )}
 
-        return (
-          <div
-            key={group.id}
-            id={`category-panel-${group.id}`}
-            className="category-menu-panel"
-            hidden={openGroup !== group.id}
-            onMouseEnter={cancelClose}
-            onMouseLeave={scheduleClose}
-          >
-            {openGroup === group.id && (
-              <>
-                <div className="category-menu-heading">
-                  <strong>
-                    محصولات {group.name}
-                  </strong>
+          {error && (
+            <div className="store-menu-status" role="alert">
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={() => setRetry((value) => value + 1)}
+              >
+                تلاش دوباره
+              </button>
+            </div>
+          )}
 
-                  <button
-                    type="button"
-                    className="category-menu-close"
-                    onClick={closePanel}
-                    aria-label="بستن زیرمنو"
+          {!loading && !error && !groups.length && (
+            <p className="store-menu-status">
+              هنوز دسته‌بندی‌ای ثبت نشده است.
+            </p>
+          )}
+
+          {groups.map((group) => {
+            const hasChildren = Boolean(group.children?.length);
+            const expanded = openGroup === group.id;
+
+            return (
+              <div className="store-menu-group" key={group.id}>
+                <button
+                  ref={(element) => {
+                    triggersRef.current[group.id] = element;
+                  }}
+                  type="button"
+                  className={`store-menu-trigger ${
+                    containsCategory(group, selectedSlug)
+                      ? "is-selected"
+                      : ""
+                  }`}
+                  aria-expanded={hasChildren ? expanded : undefined}
+                  aria-controls={
+                    hasChildren ? `store-panel-${group.id}` : undefined
+                  }
+                  onMouseEnter={() =>
+                    openWithMouse(hasChildren ? group.id : null)
+                  }
+                  onClick={(event) => {
+                    cancelClose();
+
+                    if (!hasChildren) {
+                      selectCategory(group);
+                      return;
+                    }
+
+                    const mouseClick =
+                      !mobile &&
+                      event.detail > 0 &&
+                      window.matchMedia(
+                        "(hover: hover) and (pointer: fine)"
+                      ).matches;
+
+                    setOpenGroup(
+                      mouseClick ? group.id : expanded ? null : group.id
+                    );
+                  }}
+                >
+                  <span>{group.name}</span>
+
+                  {hasChildren && (
+                    <svg
+                      className="store-menu-chevron"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  )}
+                </button>
+
+                {hasChildren && (
+                  <div
+                    id={`store-panel-${group.id}`}
+                    className="store-menu-panel"
+                    hidden={!expanded}
                   >
-                    ×
-                  </button>
-                </div>
+                    <div className="store-panel-heading">
+                      <strong>محصولات {group.name}</strong>
+                      <button
+                        type="button"
+                        className="store-menu-icon"
+                        aria-label="بستن زیرمنو"
+                        onClick={closeGroup}
+                      >
+                        ×
+                      </button>
+                    </div>
 
-                <div className="category-menu-grid">
-                  {group.children.map((category) => (
-                    <CategoryBranch
-                      key={category.id}
-                      category={category}
-                      selectedSlug={selectedSlug}
-                      onSelect={selectCategory}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })}
-    </nav>
+                    <div className="store-menu-grid">
+                      {group.children.map((category) => (
+                        <CategoryBranch
+                          key={category.id}
+                          category={category}
+                          selectedSlug={selectedSlug}
+                          onSelect={selectCategory}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+      </div>
+    </div>
   );
 }
