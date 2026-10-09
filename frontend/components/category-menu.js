@@ -34,7 +34,7 @@ function CategoryImage({ image, title }) {
       {src && !failed ? (
         <img
           src={src}
-          alt=""
+          alt={title}
           loading="lazy"
           onError={() => setFailed(true)}
         />
@@ -52,7 +52,6 @@ function CategoryBranch({ category, selectedSlug, onSelect }) {
     <section className="store-menu-column">
       <CategoryImage image={category.image} title={category.name} />
 
-      {/* عنوان این دسته، مطابق درخواست قبلی لینک نیست. */}
       <h3 className="store-menu-title">{category.name}</h3>
 
       {descendants.length > 0 && (
@@ -70,15 +69,6 @@ function CategoryBranch({ category, selectedSlug, onSelect }) {
           ))}
         </ul>
       )}
-
-      <button
-        type="button"
-        className="store-menu-view"
-        onClick={() => onSelect(category)}
-      >
-        نمایش محصولات
-        <span aria-hidden="true">←</span>
-      </button>
     </section>
   );
 }
@@ -130,10 +120,18 @@ export default function CategoryMenu({
       toggleRef.current?.focus();
     }
 
-    onSelect({
+    const value = {
       slug: category.slug,
       title: category.name,
-    });
+    };
+
+    if (typeof onSelect === "function") {
+      onSelect(value);
+    } else {
+      window.location.assign(
+        `/?category=${encodeURIComponent(category.slug)}#catalog`
+      );
+    }
   }
 
   function openWithMouse(id) {
@@ -187,7 +185,9 @@ export default function CategoryMenu({
     api("menu/categories/")
       .then((data) => {
         if (active) {
-          setGroups(Array.isArray(data) ? data : data.results ?? []);
+          setGroups(
+            Array.isArray(data) ? data : data?.results ?? []
+          );
         }
       })
       .catch((err) => {
@@ -308,9 +308,7 @@ export default function CategoryMenu({
       <div
         id="store-category-navigation"
         ref={drawerRef}
-        className={`store-menu-surface ${
-          drawerOpen ? "is-open" : ""
-        }`}
+        className={`store-menu-surface ${drawerOpen ? "is-open" : ""}`}
         role={mobile ? "dialog" : undefined}
         aria-modal={mobile && drawerOpen ? true : undefined}
         aria-label="منوی محصولات"
@@ -376,7 +374,7 @@ export default function CategoryMenu({
             </p>
           )}
 
-          {groups.map((group) => {
+          {!loading && !error && groups.map((group) => {
             const hasChildren = Boolean(group.children?.length);
             const expanded = openGroup === group.id;
 

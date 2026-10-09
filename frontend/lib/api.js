@@ -1,5 +1,7 @@
 function errorText(value) {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    return value;
+  }
 
   if (Array.isArray(value)) {
     return value.map(errorText).join(" ");
@@ -27,7 +29,7 @@ export async function api(path, options = {}) {
   if (!response.ok) {
     const error = new Error(
       errorText(data?.detail || data) ||
-        "دریافت اطلاعات ناموفق بود. اتصال به Django را بررسی کنید."
+        "دریافت اطلاعات ناموفق بود. اتصال به سرور را بررسی کنید."
     );
 
     error.status = response.status;
@@ -58,15 +60,28 @@ export const money = (value) =>
   }).format(Number(value));
 
 export function imageUrl(value) {
-  if (!value) return null;
+  if (!value || typeof value !== "string") {
+    return null;
+  }
 
   try {
     const url = new URL(value, "http://placeholder");
 
-    if (url.pathname.startsWith("/media/")) {
-      return `/api${url.pathname}${url.search}`;
+    const pathname = url.pathname.startsWith("/api/media/")
+      ? url.pathname.slice(4)
+      : url.pathname;
+
+    if (pathname.startsWith("/media/")) {
+      // روی سرور، Nginx عکس‌ها را مستقیم نمایش می‌دهد.
+      // در محیط توسعه، عکس‌ها از پراکسی Django دریافت می‌شوند.
+      const prefix =
+        process.env.NODE_ENV === "production" ? "" : "/api";
+
+      return `${prefix}${pathname}${url.search}`;
     }
-  } catch {}
+  } catch {
+    return value;
+  }
 
   return value;
 }

@@ -1,28 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { api } from "../lib/api";
 
 const banners = [
   {
     position: "main",
-    image: "/images/home/hero.png",
-    alt: "کیف چرمی قهوه‌ای دست‌دوز",
+    image: "/images/home/banner1.png",
+    alt: "مجموعه محصولات چرم طبیعی دست‌دوز",
     title: "زیبایی در جزئیات",
-    description: "چرم، همراهِ روزهای شما",
+    description: "چرم طبیعی، دوخته‌شده با دست و عشق",
   },
   {
     position: "wallet",
-    image: "/images/home/wallet.png",
-    alt: "کیف پول چرمی زرشکی",
+    image: "/images/home/banner2.png",
+    alt: "مجموعه کیف پول‌های چرم طبیعی دست‌دوز",
     title: "جزئیات ماندگار",
     description: "انتخابی برای هر روز",
   },
   {
     position: "crossbody",
-    image: "/images/home/crossbody.png",
-    alt: "کیف دوشی چرمی مشکی",
+    image: "/images/home/banner3.png",
+    alt: "مجموعه کیف‌های چرم طبیعی دست‌دوز",
     title: "همراهِ روزهای شما",
     description: "سبک و کاربردی",
   },
@@ -44,12 +43,14 @@ export default function HomepageHero() {
 
         const rows = Array.isArray(data)
           ? data
-          : data.results ?? [];
+          : data?.results ?? [];
 
         const result = {};
 
         rows.forEach((item) => {
-          result[item.position] = item;
+          if (item.position && item.category_slug) {
+            result[item.position] = item;
+          }
         });
 
         setDestinations(result);
@@ -69,7 +70,6 @@ export default function HomepageHero() {
   }, [retry]);
 
   function selectCategory(event, destination) {
-    // باز کردن لینک در تب جدید همچنان امکان‌پذیر است.
     if (
       event.ctrlKey ||
       event.metaKey ||
@@ -77,6 +77,10 @@ export default function HomepageHero() {
       event.altKey ||
       event.button !== 0
     ) {
+      return;
+    }
+
+    if (window.location.pathname !== "/") {
       return;
     }
 
@@ -88,7 +92,7 @@ export default function HomepageHero() {
       "category",
       destination.category_slug
     );
-
+    url.searchParams.delete("page");
     url.hash = "catalog";
 
     window.history.replaceState(
@@ -105,6 +109,11 @@ export default function HomepageHero() {
         },
       })
     );
+
+    document.getElementById("catalog")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   function renderBanner(banner) {
@@ -121,10 +130,26 @@ export default function HomepageHero() {
           src={banner.image}
           alt={banner.alt}
           fetchPriority={main ? "high" : undefined}
+          loading={main ? "eager" : "lazy"}
+          decoding="async"
+          style={
+            main
+              ? {
+                  objectFit: "cover",
+                  objectPosition: "35% center",
+                }
+              : undefined
+          }
         />
 
-        <div className={main ? "boutique-hero-copy" : undefined}>
-          {main && <p>فروشگاه چرم طبیعی دست‌دوز</p>}
+        <div
+          className={
+            main ? "boutique-hero-copy" : undefined
+          }
+        >
+          {main && (
+            <p>فروشگاه چرم طبیعی دست‌دوز</p>
+          )}
 
           {main ? (
             <h1>{banner.title}</h1>
@@ -136,7 +161,9 @@ export default function HomepageHero() {
 
           {destination && (
             <span
-              className={main ? "boutique-cta" : undefined}
+              className={
+                main ? "boutique-cta" : undefined
+              }
             >
               مشاهدهٔ محصولات ←
             </span>
@@ -145,10 +172,12 @@ export default function HomepageHero() {
       </>
     );
 
-    // بنر بدون مقصد، صرفاً تصویر است و لینک اشتباه ندارد.
     if (!destination) {
       return (
-        <div key={banner.position} className={className}>
+        <div
+          key={banner.position}
+          className={className}
+        >
           {content}
         </div>
       );
@@ -190,7 +219,9 @@ export default function HomepageHero() {
 
           <button
             type="button"
-            onClick={() => setRetry((value) => value + 1)}
+            onClick={() =>
+              setRetry((value) => value + 1)
+            }
           >
             تلاش دوباره
           </button>

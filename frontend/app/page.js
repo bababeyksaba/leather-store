@@ -366,14 +366,14 @@ export default function Products() {
 
           <p>
             هر محصول حاصل زمان، دقت و علاقه به چرم طبیعی است.
-            از انتخاب چرم تا آخرین بخیه، جزئیات را با دست
+            از انتخاب چرم تا آخرین دوخت ، جزئیات را با دست
             می‌سازیم تا همراهی زیبا و ماندگار برای روزهای شما باشد.
           </p>
         </div>
 
         <div className="handmade-story-photo">
           <img
-            src="/images/home/handmade.jpg"
+            src="/images/home/handmade.png"
             alt="دوخت دستی محصول چرمی با نخ و سوزن"
             loading="lazy"
             width="900"
