@@ -1,3 +1,4 @@
+import logging
 import secrets
 import uuid
 
@@ -9,6 +10,7 @@ from django.db import transaction
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.crypto import constant_time_compare, salted_hmac
 
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -24,6 +26,11 @@ from .serializers import (
     ProfileSerializer,
     AddressSerializer,
 )
+
+
+from .sms_trez import TrezSMSError, get_trez_config, send_trez_otp
+
+logger = logging.getLogger(__name__)
 
 
 class OTPThrottle(AnonRateThrottle):
@@ -76,79 +83,64 @@ class SessionAPIView(PublicAPIView):
         })
 
 
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class RequestOTPAPIView(PublicAPIView):
     throttle_classes = [OTPThrottle]
 
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         phone = serializer.validated_data["phone"]
 
-        # فقط برای تست محلی؛ پیامک واقعی هنوز متصل نیست.
-        if (
-            not settings.DEBUG
-            or getattr(settings, "OTP_BACKEND", "") != "console"
-        ):
+        backend = str(getattr(settings, "OTP_BACKEND", "")).strip().lower()
+        config = None
+        if backend == "trez":
+            try:
+                config = get_trez_config()
+            except TrezSMSError:
+                logger.error("OTP SMS configuration is missing or invalid.")
+                return Response(
+                    {"detail": "تنظیمات سرویس پیامک کامل نیست؛ با پشتیبانی تماس بگیرید."},
+                    status=503,
+                )
+        elif backend != "console" or not settings.DEBUG:
             return Response(
                 {"detail": "سرویس ارسال پیامک هنوز تنظیم نشده است."},
                 status=503,
             )
 
-        now = timezone.now()
-
+        # Reserve the send attempt before network I/O. Preserve the existing limits.
         with transaction.atomic():
             OTPState.objects.get_or_create(phone=phone)
-
-            state = (
-                OTPState.objects
-                .select_for_update()
-                .get(phone=phone)
-            )
+            state = OTPState.objects.select_for_update().get(phone=phone)
+            now = timezone.now()
 
             if state.blocked_until and state.blocked_until > now:
                 return Response(
-                    {
-                        "detail": (
-                            "تلاش‌های ناموفق زیاد است؛ "
-                            "۱۵ دقیقه بعد امتحان کنید."
-                        )
-                    },
+                    {"detail": "تلاش‌های ناموفق زیاد است؛ ۱۵ دقیقه بعد امتحان کنید."},
                     status=429,
                 )
-
-            if (
-                state.last_sent_at
-                and now - state.last_sent_at < timedelta(seconds=60)
-            ):
+            if state.last_sent_at and now - state.last_sent_at < timedelta(seconds=60):
                 return Response(
                     {"detail": "برای ارسال مجدد، یک دقیقه صبر کنید."},
                     status=429,
                 )
-
             if (
                 not state.window_started_at
-                or now - state.window_started_at
-                >= timedelta(minutes=15)
+                or now - state.window_started_at >= timedelta(minutes=15)
             ):
                 state.window_started_at = now
                 state.send_count = 0
-
             if state.send_count >= 5:
                 return Response(
-                    {
-                        "detail": (
-                            "سقف دریافت کد رسیده است؛ "
-                            "بعداً امتحان کنید."
-                        )
-                    },
+                    {"detail": "سقف دریافت کد رسیده است؛ بعداً امتحان کنید."},
                     status=429,
                 )
 
             code = f"{secrets.randbelow(1000000):06d}"
             challenge = uuid.uuid4().hex
-
-            state.code_hash = hash_code(phone, challenge, code)
+            # Empty hash means pending/invalid, so an unsent OTP cannot be verified.
+            state.code_hash = ""
             state.challenge = challenge
             state.expires_at = now + timedelta(minutes=5)
             state.last_sent_at = now
@@ -157,15 +149,50 @@ class RequestOTPAPIView(PublicAPIView):
             state.blocked_until = None
             state.save()
 
+        if backend == "trez":
+            try:
+                message_id = send_trez_otp(phone, code, config=config)
+            except TrezSMSError as exc:
+                # Do not undo the cooldown/count: failures must not cause SMS storms.
+                # Conditional cleanup cannot invalidate a later concurrent challenge.
+                OTPState.objects.filter(phone=phone, challenge=challenge).update(
+                    code_hash="", challenge="", expires_at=timezone.now(),
+                )
+                logger.warning(
+                    "OTP SMS failed: category=%s code=%s",
+                    exc.kind, exc.provider_code or "-",
+                )
+                return Response(
+                    {"detail": "ارسال کد تأیید کامل نشد؛ یک دقیقه بعد دوباره امتحان کنید."},
+                    status=502,
+                )
+            logger.info("OTP SMS submission accepted: message_id=%s", message_id)
+
+        activated_at = timezone.now()
+        activated = OTPState.objects.filter(
+            phone=phone,
+            challenge=challenge,
+            code_hash="",
+            expires_at__gt=activated_at,
+        ).update(
+            code_hash=hash_code(phone, challenge, code),
+            expires_at=activated_at + timedelta(minutes=5),
+        )
+        if activated != 1:
+            return Response(
+                {"detail": "این درخواست دیگر معتبر نیست؛ دوباره کد دریافت کنید."},
+                status=409,
+            )
+
         request.session["otp_phone"] = phone
         request.session["otp_challenge"] = challenge
-
-        print(f"[LOCAL OTP] {phone}: {code}", flush=True)
-
-        return Response({
-            "detail": "کد آزمایشی در ترمینال Django نمایش داده شد.",
-            "expires_in": 300,
-        })
+        if backend == "console":
+            # Development mode only; the guard above prohibits it when DEBUG=False.
+            print(f"[LOCAL OTP] {phone}: {code}", flush=True)
+            detail = "کد آزمایشی در ترمینال Django نمایش داده شد."
+        else:
+            detail = "درخواست ارسال کد تأیید ثبت شد."
+        return Response({"detail": detail, "expires_in": 300})
 
 
 class VerifyOTPAPIView(PublicAPIView):

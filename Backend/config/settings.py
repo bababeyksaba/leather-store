@@ -1,6 +1,6 @@
 import os
-
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 
@@ -147,7 +147,23 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-OTP_BACKEND = "console"
+# SMS / OTP provider. Keep the access hash out of source control.
+OTP_BACKEND = os.getenv("OTP_BACKEND", "trez").strip().lower()
+
+TREZ_ACCESS_HASH = os.getenv("TREZ_ACCESS_HASH", "").strip()
+
+TREZ_PHONE_NUMBER = os.getenv(
+    "TREZ_PHONE_NUMBER",
+    "5000222222100",
+).strip()
+
+TREZ_PATTERN_ID = os.getenv(
+    "TREZ_PATTERN_ID",
+    "d37bbc13-085b-4170-bd53-9af9c5c29351",
+).strip()
+
+TREZ_TIMEOUT_SECONDS = 10
+
 
 SUPPORT_WHATSAPP = os.getenv("SUPPORT_WHATSAPP", "")
 SUPPORT_INSTAGRAM = os.getenv("SUPPORT_INSTAGRAM", "")
@@ -166,3 +182,22 @@ ORDER_RESERVATION_MINUTES = 15
 if "store.apps.StoreConfig" not in INSTALLED_APPS:
     INSTALLED_APPS.append("store.apps.StoreConfig")
 
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "otp_console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "level": "WARNING",
+        },
+    },
+    "loggers": {
+        "users": {
+            "handlers": ["otp_console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
