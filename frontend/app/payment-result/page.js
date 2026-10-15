@@ -4,21 +4,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const initialResult = {
+  status: "loading",
+  orderNumber: "",
+  message: "در حال بررسی وضعیت پرداخت...",
+};
+
 export default function PaymentResultPage() {
-  const [result, setResult] = useState({
-    status: "loading",
-    order: "",
-    message: "در حال بررسی وضعیت پرداخت...",
-  });
+  const [result, setResult] = useState(initialResult);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const order = params.get("order") || "";
 
-    if (!/^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/.test(order)) {
+    const uuidPattern =
+      /^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/;
+
+    if (!uuidPattern.test(order)) {
       setResult({
         status: "invalid",
-        order: "",
+        orderNumber: "",
         message: "شماره سفارش معتبر نیست.",
       });
       return;
@@ -28,6 +33,7 @@ export default function PaymentResultPage() {
 
     async function checkPayment() {
       try {
+        // بررسی وضعیت واقعی پرداخت در Django
         const response = await fetch(
           `/api/orders/${encodeURIComponent(order)}/digipay/status/`,
           {
@@ -40,8 +46,8 @@ export default function PaymentResultPage() {
         if (response.status === 401 || response.status === 403) {
           setResult({
             status: "auth",
-            order,
-            message: "برای مشاهده نتیجه پرداخت، وارد حساب خود شوید.",
+            orderNumber: "",
+            message: "برای مشاهده نتیجه پرداخت وارد حساب خود شوید.",
           });
           return;
         }
@@ -50,30 +56,63 @@ export default function PaymentResultPage() {
           throw new Error("Payment status unavailable");
         }
 
-        const data = await response.json();
+        const paymentData = await response.json();
 
+        // فقط در صورت تأیید کامل پرداخت، وضعیت موفق نمایش داده شود
         if (
-          data.orderStatus === "paid" &&
-          data.paymentStatus === "verified"
+          paymentData.orderStatus === "paid" &&
+          paymentData.paymentStatus === "verified"
         ) {
+          let displayNumber = "";
+
+          // دریافت شماره کوتاه و قابل نمایش سفارش
+          try {
+            const orderResponse = await fetch(
+              `/api/orders/${encodeURIComponent(order)}/`,
+              {
+                credentials: "include",
+                cache: "no-store",
+                signal: controller.signal,
+              }
+            );
+
+            if (orderResponse.ok) {
+              const orderDetails = await orderResponse.json();
+
+              // UUID هرگز جایگزین شماره کوتاه نشود
+              const shortNumber = orderDetails.display_number;
+
+              if (
+                shortNumber !== null &&
+                shortNumber !== undefined &&
+                /^[0-9]+$/.test(String(shortNumber))
+              ) {
+                displayNumber = String(shortNumber);
+              }
+            }
+          } catch (error) {
+            if (error.name === "AbortError") return;
+            // خطای دریافت شماره کوتاه نباید وضعیت پرداخت را تغییر دهد
+          }
+
           setResult({
             status: "success",
-            order,
+            orderNumber: displayNumber,
             message: "سفارش شما با موفقیت ثبت شد!",
           });
         } else if (
-          data.paymentStatus === "review" ||
-          data.paymentStatus === "verifying"
+          paymentData.paymentStatus === "review" ||
+          paymentData.paymentStatus === "verifying"
         ) {
           setResult({
             status: "review",
-            order,
+            orderNumber: "",
             message: "نتیجه پرداخت شما در حال بررسی است.",
           });
         } else {
           setResult({
             status: "pending",
-            order,
+            orderNumber: "",
             message: "پرداخت این سفارش هنوز تأیید نشده است.",
           });
         }
@@ -81,7 +120,7 @@ export default function PaymentResultPage() {
         if (error.name !== "AbortError") {
           setResult({
             status: "error",
-            order,
+            orderNumber: "",
             message: "امکان بررسی وضعیت پرداخت وجود ندارد.",
           });
         }
@@ -121,13 +160,17 @@ export default function PaymentResultPage() {
           )}
         </div>
 
-        <h1>{loading ? "بررسی نتیجه پرداخت" : result.message}</h1>
+        <h1>
+          {loading ? "بررسی نتیجه پرداخت" : result.message}
+        </h1>
 
         {success ? (
           <p className="payment-description">
             پرداخت شما با موفقیت تأیید شد.
             <br />
-            سفارش شما در فروشگاه <strong>Luxe Leather</strong> ثبت شده است.
+            سفارش شما در فروشگاه{" "}
+            <strong>Luxe Leather</strong>{" "}
+            ثبت شده است.
             <br />
             برای مشاهده وضعیت و پیگیری سفارش، به بخش
             <strong> پروفایل ← سفارشات </strong>
@@ -149,10 +192,16 @@ export default function PaymentResultPage() {
           </p>
         )}
 
-        {result.order && (
+        {/* نمایش فقط شماره کوتاه سفارش، نه UUID */}
+        {success && result.orderNumber && (
           <div className="order-box">
-            <span>شماره پیگیری سفارش در فروشگاه</span>
-            <strong dir="ltr">{result.order}</strong>
+            <span>شماره پیگیری سفارش</span>
+            <strong dir="ltr">
+              {result.orderNumber}
+            </strong>
+            <small>
+              این شماره را برای پیگیری سفارش خود نگه دارید.
+            </small>
           </div>
         )}
 
@@ -247,11 +296,12 @@ export default function PaymentResultPage() {
         .order-box {
           display: flex;
           flex-direction: column;
+          align-items: center;
           gap: 12px;
           background: #faf9f7;
           border: 1px solid #eeeae4;
           border-radius: 12px;
-          padding: 20px 12px;
+          padding: 22px 14px;
           margin-bottom: 28px;
         }
 
@@ -261,10 +311,15 @@ export default function PaymentResultPage() {
         }
 
         .order-box strong {
-          font-size: 13px;
-          font-weight: 600;
+          font-size: 27px;
+          font-weight: 700;
+          letter-spacing: 1px;
           color: #333;
-          overflow-wrap: anywhere;
+        }
+
+        .order-box small {
+          font-size: 12px;
+          color: #999;
         }
 
         .payment-actions {
@@ -336,7 +391,7 @@ export default function PaymentResultPage() {
           }
 
           .order-box strong {
-            font-size: 11px;
+            font-size: 24px;
           }
         }
       `}</style>
