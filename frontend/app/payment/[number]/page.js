@@ -1,222 +1,74 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { api, accountMutation, money } from "../../../lib/api";
 
-import {
-  api,
-  accountMutation,
-  money,
-} from "../../../lib/api";
-
-import { useAuth } from "../../../components/auth-context";
-import { useCart } from "../../../components/cart-context";
-import OrderFulfillment from "../../../components/order-fulfillment";
-import OrderReceipt from "../../../components/order-receipt";
-
-export default function TestPaymentPage({ params }) {
+export default function PaymentPage({ params }) {
   const { number } = use(params);
-
   const router = useRouter();
-
-  const { refreshAuth } = useAuth();
-  const { refresh: refreshCart } = useCart();
-
   const [order, setOrder] = useState(null);
-  const [error, setError] = useState("");
+  const [mode, setMode] = useState("unavailable");
   const [busy, setBusy] = useState(false);
-  const [retry, setRetry] = useState(0);
+  const [error, setError] = useState("");
+
+  const reload = useCallback(async () => {
+    const [o, p] = await Promise.all([
+      api(`orders/${encodeURIComponent(number)}/`),
+      api("payments/mode/"),
+    ]);
+    setOrder(o);
+    setMode(p.mode);
+  }, [number]);
 
   useEffect(() => {
-    let active = true;
+    reload().catch((err) => setError(err.message || "خطا در دریافت سفارش"));
+  }, [reload]);
 
-    async function load() {
-      const session = await refreshAuth();
-
-      if (!active) return;
-
-      if (!session.authenticated) {
-        router.replace(
-          `/login?next=${encodeURIComponent(`/payment/${number}`)}`
-        );
-        return;
-      }
-
-      const result = await api(`orders/${number}/`);
-
-      if (active) setOrder(result);
-    }
-
-    setError("");
-
-    load().catch((err) => {
-      if (active) setError(err.message);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [number, refreshAuth, router, retry]);
-
-  async function action(path) {
-    if (busy) return;
-
+  async function proceed() {
+    if (busy || !order || order.status !== "pending") return;
     setBusy(true);
     setError("");
-
     try {
-      const result = await accountMutation(
-        `orders/${number}/${path}/`,
-        "POST"
-      );
-
-      setOrder(result);
-
-      if (result.status !== "pending") {
-        sessionStorage.removeItem("checkout_request");
+      if (mode === "test") {
+        await accountMutation(`orders/${encodeURIComponent(number)}/test-payment/`, "POST", {});
+        await reload();
+      } else if (mode === "digipay") {
+        const payment = await accountMutation(`orders/${encodeURIComponent(number)}/digipay/start/`, "POST", {});
+        const target = new URL(payment.redirectUrl);
+        if (target.protocol !== "https:" || !/(^|\.)(mydigipay\.com|mydigipay\.info)$/i.test(target.hostname)) {
+          throw new Error("نشانی درگاه پرداخت معتبر نیست.");
+        }
+        window.location.assign(target.href);
+        return;
+      } else {
+        throw new Error("درگاه پرداخت هنوز فعال نشده است.");
       }
-
-      await refreshCart();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "شروع پرداخت ناموفق بود.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section className="account-page">
-      <h1>
-        {order?.status === "paid"
-          ? "سفارش ثبت شد"
-          : "جزئیات سفارش و پرداخت"}
-      </h1>
-
-      <p className="account-note">
-        پرداخت این نسخه آزمایشی است؛ هیچ پولی جابه‌جا نمی‌شود.
-      </p>
-
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => setRetry((value) => value + 1)}
-      >
-        به‌روزرسانی وضعیت
-      </button>
-
-      {error && (
-        <div className="error" role="alert">
-          <p>{error}</p>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setRetry((value) => value + 1)}
-          >
-            تلاش دوباره
-          </button>
-        </div>
-      )}
-
+    <section className="account-page" dir="rtl">
+      <h1>پرداخت سفارش</h1>
+      {error && <p className="error" role="alert">{error}</p>}
       {!order ? (
-        <p>در حال دریافت سفارش…</p>
+        <p>در حال بارگذاری سفارش…</p>
       ) : (
         <div className="account-panel">
-          <OrderReceipt order={order} />
-
-          <p>وضعیت پرداخت: {order.status_label}</p>
-
-          <h2>مبلغ: {money(order.total)}</h2>
-
-          <p>
-            {order.recipient_name} · {order.phone}
-          </p>
-
-          <p>
-            {order.province}، {order.city}، {order.address_line}
-          </p>
-
-          <p>کد پستی: {order.postal_code}</p>
-
-          <p>روش ارسال: {order.shipping_name}</p>
-
-          <OrderFulfillment order={order} />
-
-          <h2>محصولات سفارش</h2>
-
-          {(order.items ?? []).map((item) => (
-            <p key={item.id || item.cart_key}>
-              {item.name} {item.color}
-              {" · "}
-              {money(item.quantity)} عدد
-              {" · "}
-              {money(item.item_total)}
-            </p>
-          ))}
-
-          <p>جمع محصولات: {money(order.subtotal)}</p>
-          <p>هزینه ارسال: {money(order.shipping_fee)}</p>
-
+          <p>شماره سفارش: {order.display_number || order.number}</p>
+          <p>مبلغ سفارش مطابق واحد نمایش سایت: {money(order.total)}</p>
+          <p>وضعیت: {order.status_label || order.status}</p>
           {order.status === "pending" && (
-            <>
-              <p>
-                مهلت پرداخت:{" "}
-                {new Date(order.expires_at).toLocaleString("fa-IR")}
-              </p>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "12px",
-                  marginBlock: "20px",
-                }}
-              >
-                <button
-                  type="button"
-                  className="checkout-button"
-                  disabled={busy}
-                  onClick={() => action("test-payment")}
-                >
-                  {busy
-                    ? "در حال بررسی…"
-                    : "شبیه‌سازی پرداخت موفق"}
-                </button>
-
-                <button
-                  type="button"
-                  className="plain-button"
-                  disabled={busy}
-                  onClick={() => action("cancel")}
-                >
-                  لغو سفارش
-                </button>
-              </div>
-            </>
+            <button type="button" className="checkout-button" disabled={busy || mode === "unavailable"} onClick={proceed}>
+              {busy ? "در حال پردازش…" : mode === "digipay" ? "پرداخت با دیجی‌پی" : mode === "test" ? "تکمیل پرداخت آزمایشی" : "پرداخت غیرفعال است"}
+            </button>
           )}
-
-          {order.status === "paid" && (
-            <p className="success" role="status">
-  پرداخت آزمایشی موفق بود. شمارهٔ سفارش را با آیکون کنار آن کپی کنید.
-</p>
-          )}
-
-          {(order.status === "cancelled" ||
-            order.status === "expired") && (
-            <p>
-              سفارش بسته شده و موجودی رزروشده آزاد شده است.
-              می‌توانید دوباره سفارش بدهید.
-            </p>
-          )}
-
-          <p>
-            <Link href="/profile">
-              مشاهدهٔ سفارش‌ها در حساب کاربری ←
-            </Link>
-          </p>
-
-          <Link href="/cart">بازگشت به سبد خرید</Link>
+          <p><Link href="/checkout">بازگشت به تسویه‌حساب</Link></p>
         </div>
       )}
     </section>

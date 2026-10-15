@@ -15,7 +15,7 @@ from products.variants import sync_legacy_stock
 from carts.services import normalize_cart
 from users.models import CustomerProfile, Address
 
-from .models import Order, OrderItem, ShippingMethod
+from .models import Order, OrderItem, ShippingMethod, DigiPayAttempt
 
 
 def cart_quantities(session):
@@ -106,6 +106,7 @@ def create_order(user, session, data):
         user=user,
         idempotency_key=data["idempotency_key"],
 
+        payment_mode=getattr(settings, "PAYMENT_BACKEND", "test"),
         recipient_name=(
             f"{profile.first_name} {profile.last_name}"
         ),
@@ -178,6 +179,8 @@ def finish_order(user, number, action):
         order.status = Order.Status.EXPIRED
 
     elif action == "cancel":
+        if DigiPayAttempt.objects.filter(order=order).exists():
+            raise ValidationError({"detail": "تراکنش دیجی‌پی در جریان است؛ وضعیت باید تعیین تکلیف شود."})
         release_stock(order)
         order.status = Order.Status.CANCELLED
 
@@ -208,6 +211,7 @@ def expire_one(number):
         order
         and order.status == Order.Status.PENDING
         and order.expires_at <= timezone.now()
+        and not DigiPayAttempt.objects.filter(order=order).exists()
     ):
         release_stock(order)
 
@@ -281,4 +285,3 @@ def clear_purchased_cart(session, order):
     session["cart"] = cart
     session.pop("checkout_order", None)
     session.modified = True
-

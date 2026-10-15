@@ -43,7 +43,7 @@ class ShippingMethod(models.Model):
 class Order(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "در انتظار پرداخت"
-        PAID = "paid", "پرداخت آزمایشی موفق"
+        PAID = "paid", "پرداخت موفق"
         CANCELLED = "cancelled", "لغوشده"
         EXPIRED = "expired", "مهلت پرداخت تمام شده"
 
@@ -212,3 +212,28 @@ class OrderItem(models.Model):
                 name="order_item_quantity_positive",
             ),
         ]
+
+class DigiPayAttempt(models.Model):
+    """One immutable providerId per order. Do not auto-retry uncertain transactions."""
+    class State(models.TextChoices):
+        STARTING = "starting", "Ticket request in progress"
+        REDIRECT = "redirect", "Awaiting payment"
+        VERIFYING = "verifying", "Verification in progress"
+        REVIEW = "review", "Manual reconciliation required"
+        VERIFIED = "verified", "Verified"
+        FAILED = "failed", "Provider reported failure"
+
+    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="digipay_attempt")
+    provider_id = models.CharField(max_length=80, unique=True)
+    expected_amount = models.BigIntegerField()
+    state = models.CharField(max_length=20, choices=State.choices, default=State.STARTING)
+    ticket = models.CharField(max_length=250, blank=True)
+    redirect_url = models.URLField(max_length=1000, blank=True)
+    tracking_code = models.CharField(max_length=120, blank=True)
+    payment_type = models.PositiveSmallIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]

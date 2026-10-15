@@ -17,6 +17,7 @@ export default function CheckoutPage() {
   const { refreshAuth } = useAuth();
 
   const [data, setData] = useState(null);
+  const [paymentMode, setPaymentMode] = useState("unavailable");
   const [addressId, setAddressId] = useState("");
   const [shippingId, setShippingId] = useState("");
   const [pending, setPending] = useState(null);
@@ -83,6 +84,7 @@ export default function CheckoutPage() {
       if (active) {
         setPending(previous || null);
         setData({ account, cart, shipping });
+        setPaymentMode(paymentConfig.mode || "unavailable");
 
         setAddressId(
           String((account.addresses.find(a => a.is_default) || account.addresses[0])?.id || "")
@@ -201,8 +203,11 @@ export default function CheckoutPage() {
       <h1>تأیید سفارش</h1>
 
       <p className="account-note">
-        پرداخت در این نسخه آزمایشی است؛ هیچ مبلغی از حساب شما
-        برداشت نمی‌شود. مبالغ مطابق واحد قیمت محصولات هستند.
+        {paymentMode === "test"
+          ? "پرداخت در محیط توسعه آزمایشی است و وجهی برداشت نمی‌شود."
+          : paymentMode === "digipay"
+            ? "بعد از ثبت سفارش به مرحله پرداخت امن دیجی‌پی می‌روید."
+            : "روش پرداخت فعلاً غیرفعال است."}
       </p>
 
       {pending && (
@@ -335,16 +340,18 @@ export default function CheckoutPage() {
               invalid ||
               !addressId ||
               !method ||
-              Boolean(pending)
+              Boolean(pending) ||
+              paymentMode === "unavailable"
             }
           >
             {busy
               ? "در حال ثبت…"
-              : "ثبت سفارش و پرداخت آزمایشی"}
+              : paymentMode === "test"
+                ? "ثبت سفارش و پرداخت آزمایشی"
+                : "ثبت سفارش و ادامه به پرداخت"}
           </button>
         </div>
       </form>
     </section>
   );
 }
-

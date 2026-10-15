@@ -62,15 +62,15 @@ class OrderListCreateAPIView(OrderBaseAPIView):
         )
 
     def post(self, request):
-        if (
-            not settings.DEBUG
-            or getattr(settings, "PAYMENT_BACKEND", "") != "test"
+        if not (
+            (settings.DEBUG and getattr(settings, "PAYMENT_BACKEND", "") == "test")
+            or (getattr(settings, "PAYMENT_BACKEND", "") == "digipay"
+                and getattr(settings, "DIGIPAY_ENABLED", False))
         ):
             return Response(
                 {
                     "detail": (
-                        "این نسخه ثبت سفارش آزمایشی است "
-                        "و در حالت انتشار فعال نیست."
+                        "ثبت سفارش برای روش پرداخت فعلی غیرفعال است."
                     )
                 },
                 status=503,

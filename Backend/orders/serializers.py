@@ -103,4 +103,3 @@ class OrderSerializer(serializers.ModelSerializer):
             "delivered_at",
             "display_number",
         ]
-

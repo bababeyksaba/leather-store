@@ -176,7 +176,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
 
-PAYMENT_BACKEND = "test"
+PAYMENT_BACKEND = os.getenv("PAYMENT_BACKEND", "test").strip().lower()
 ORDER_RESERVATION_MINUTES = 15
 
 if "store.apps.StoreConfig" not in INSTALLED_APPS:
@@ -201,3 +201,21 @@ LOGGING = {
         },
     },
 }
+# DigiPay UPG — staged integration (off until explicitly enabled).
+DIGIPAY_ENABLED = os.getenv("DIGIPAY_ENABLED", "false").lower() == "true"
+DIGIPAY_CLIENT_ID = os.getenv("DIGIPAY_CLIENT_ID", "").strip()
+DIGIPAY_CLIENT_SECRET = os.getenv("DIGIPAY_CLIENT_SECRET", "").strip()
+DIGIPAY_USERNAME = os.getenv("DIGIPAY_USERNAME", "").strip()
+DIGIPAY_PASSWORD = os.getenv("DIGIPAY_PASSWORD", "").strip()
+DIGIPAY_ENVIRONMENT = os.getenv("DIGIPAY_ENVIRONMENT", "staging").strip().lower()
+DIGIPAY_AMOUNT_UNIT = os.getenv("DIGIPAY_AMOUNT_UNIT", "").strip().lower()
+DIGIPAY_CALLBACK_URL = os.getenv("DIGIPAY_CALLBACK_URL", "").strip()
+DIGIPAY_RETURN_URL = os.getenv("DIGIPAY_RETURN_URL", "").strip()
+# Single-vendor merchant-defined IDs: generate once and keep stable across orders.
+# Acceptance of merchant IDs and category taxonomy must be tested with DigiPay.
+DIGIPAY_SELLER_ID = os.getenv("DIGIPAY_SELLER_ID", "").strip()
+DIGIPAY_SUPPLIER_ID = os.getenv("DIGIPAY_SUPPLIER_ID", "").strip()
+DIGIPAY_CATEGORY_ID = os.getenv("DIGIPAY_CATEGORY_ID", "").strip()
+DIGIPAY_PRODUCT_TYPE = os.getenv("DIGIPAY_PRODUCT_TYPE", "").strip()
+DIGIPAY_BRAND = os.getenv("DIGIPAY_BRAND", "").strip()
+DIGIPAY_STORE_AMOUNT_UNIT = os.getenv("DIGIPAY_STORE_AMOUNT_UNIT", "").strip().lower()
