@@ -244,6 +244,30 @@ class Product(AutoProductSkuMixin):
         verbose_name="فعال",
     )
 
+    show_in_popular = models.BooleanField(
+        default=False,
+        verbose_name="نمایش در محبوب‌ترین‌های صفحه اصلی",
+        help_text="انتخاب دستی این محصول برای نمایش در بخش محبوب‌ترین‌ها.",
+    )
+
+    popular_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="اولویت نمایش محبوب‌ترین‌ها",
+        help_text="عدد کمتر زودتر نمایش داده می‌شود.",
+    )
+
+    show_in_homepage = models.BooleanField(
+        default=False,
+        verbose_name="نمایش در محصولات منتخب صفحه اصلی",
+        help_text="فقط محصولات انتخاب‌شده در این بخش از صفحه اصلی نمایش داده می‌شوند.",
+    )
+
+    homepage_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="اولویت محصولات منتخب صفحه اصلی",
+        help_text="عدد کمتر زودتر نمایش داده می‌شود.",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="تاریخ ایجاد",

@@ -73,6 +73,9 @@ class ProductFilterSerializer(serializers.Serializer):
         },
     )
 
+    homepage_popular = serializers.BooleanField(required=False)
+    homepage_featured = serializers.BooleanField(required=False)
+
     available = serializers.BooleanField(
         required=False,
         error_messages={
@@ -241,6 +244,15 @@ class ProductListAPIView(
     serializer_class = ProductListSerializer
     permission_classes = (AllowAny,)
 
+    def paginate_queryset(self, queryset):
+        # Curated homepage should include all selected items for horizontal scrolling.
+        if (
+            self.request.query_params.get("homepage_popular", "").lower() in ("true", "1")
+            or self.request.query_params.get("homepage_featured", "").lower() in ("true", "1")
+        ):
+            return None
+        return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         filter_serializer = ProductFilterSerializer(
             data=self.request.query_params
@@ -252,6 +264,18 @@ class ProductListAPIView(
         queryset = get_visible_products(
             self.get_visible_ids()
         )
+
+        # Existing /api/products/ endpoint: dedicated admin-curated homepage mode.
+        # Ignore catalog filters/order in this mode to preserve manual ordering.
+        if filters.get("homepage_popular") is True:
+            return queryset.filter(show_in_popular=True).order_by(
+                "popular_order", "id"
+            )
+
+        if filters.get("homepage_featured") is True:
+            return queryset.filter(show_in_homepage=True).order_by(
+                "homepage_order", "id"
+            )
 
         search = filters.get("search", "").strip()
 

@@ -2181,3 +2181,19 @@ textarea {
     margin: 0 !important;
   }
 }
+
+/* Luxe Leather — homepage layout: 0.5 cm from each viewport edge.
+   All other routes keep their existing max-width. */
+main:has(.boutique-home) {
+  width: calc(100% - 1cm);
+  max-width: none;
+  margin-inline: auto;
+  padding-inline: 0;
+}
+
+@media (max-width: 540px) {
+  main:has(.boutique-home) {
+    width: calc(100% - 1cm);
+    padding-inline: 0;
+  }
+}

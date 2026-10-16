@@ -247,12 +247,16 @@ class ProductAdmin(admin.ModelAdmin):
         "category",
         "price",
         "stock",
+        "show_in_popular",
+        "popular_order",
+        "show_in_homepage",
+        "homepage_order",
         "is_active",
     )
 
     list_display_links = ("name",)
-    list_editable = ("is_active",)
-    list_filter = ("category", "is_active")
+    list_editable = ("is_active", "show_in_popular", "popular_order", "show_in_homepage", "homepage_order")
+    list_filter = ("category", "is_active", "show_in_popular", "show_in_homepage")
     search_fields = ("name", "slug", "sku")
     list_select_related = ("category",)
 
@@ -310,6 +314,20 @@ class ProductAdmin(admin.ModelAdmin):
             "تصویر اصلی",
             {
                 "fields": ("image",),
+            },
+        ),
+        (
+            "محصولات منتخب صفحه اصلی",
+            {
+                "fields": ("show_in_homepage", "homepage_order"),
+                "description": "محصولات عادی فقط در دسته‌بندی‌ها هستند. این گزینه نمایش محصول در بخش محصولات منتخب صفحه اصلی را فعال می‌کند.",
+            },
+        ),
+        (
+            "محبوب‌ترین‌های صفحه اصلی",
+            {
+                "fields": ("show_in_popular", "popular_order"),
+                "description": "محصولات انتخاب‌شده بر اساس اولویت صعودی نمایش داده می‌شوند. فقط محصولات فعال با دسته‌بندی فعال قابل مشاهده‌اند.",
             },
         ),
         (

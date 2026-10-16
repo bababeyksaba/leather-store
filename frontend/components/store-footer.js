@@ -30,7 +30,7 @@ export default function StoreFooter() {
   return (
     <footer className="store-footer">
       <div>
-        <strong>فروشگاه چرم طبیعی دست‌دوز</strong>
+        <strong>LUXE LEATHER</strong>
 
         {info.phone && (
           <p>

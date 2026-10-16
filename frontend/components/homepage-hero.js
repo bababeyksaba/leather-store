@@ -162,7 +162,7 @@ export default function HomepageHero() {
           {destination && (
             <span
               className={
-                main ? "boutique-cta" : undefined
+                "boutique-cta"
               }
             >
               مشاهدهٔ محصولات ←

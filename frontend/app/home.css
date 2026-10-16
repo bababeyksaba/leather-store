@@ -1444,3 +1444,289 @@ header.boutique-header {
 .boutique-home .handmade-story-photo {
   background: #fff;
 }
+
+/* Luxe Leather — full-width homepage and elegant banner hover motion */
+.boutique-home {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.boutique-home .boutique-main-banner,
+.boutique-home .boutique-small-banner {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 360ms cubic-bezier(.2,.75,.25,1),
+              box-shadow 360ms ease;
+}
+
+.boutique-home .boutique-hero .boutique-main-banner > img,
+.boutique-home .boutique-hero .boutique-small-banner > img {
+  transition: transform 680ms cubic-bezier(.2,.75,.25,1),
+              filter 500ms ease;
+  transform-origin: center center;
+}
+
+.boutique-home .boutique-main-banner .boutique-hero-copy,
+.boutique-home .boutique-small-banner > div {
+  transition: transform 360ms cubic-bezier(.2,.75,.25,1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boutique-home .boutique-main-banner:hover,
+  .boutique-home .boutique-small-banner:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 42px rgba(40, 25, 16, .17);
+  }
+
+  .boutique-home .boutique-main-banner:hover > img,
+  .boutique-home .boutique-small-banner:hover > img {
+    transform: scale(1.055);
+    filter: brightness(1.035);
+  }
+
+  .boutique-home .boutique-main-banner:hover .boutique-hero-copy,
+  .boutique-home .boutique-small-banner:hover > div {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boutique-home .boutique-main-banner,
+  .boutique-home .boutique-small-banner,
+  .boutique-home .boutique-hero .boutique-main-banner > img,
+  .boutique-home .boutique-hero .boutique-small-banner > img,
+  .boutique-home .boutique-main-banner .boutique-hero-copy,
+  .boutique-home .boutique-small-banner > div {
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+
+/* Homepage: banners remain wide; popular and catalog are intentionally narrower. */
+.boutique-home .boutique-popular,
+.boutique-home .boutique-catalog {
+  width: min(100%, 1200px);
+  margin-inline: auto;
+}
+
+.boutique-home .boutique-popular {
+  margin-block: 44px 58px;
+  min-width: 0;
+}
+
+.boutique-home .popular-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+.boutique-home .popular-eyebrow {
+  color: #ad735e;
+  font-size: 12px;
+}
+.boutique-home .popular-heading h2 {
+  margin: 6px 0 4px;
+  font-size: clamp(23px, 2.3vw, 32px);
+  color: #34231c;
+}
+.boutique-home .popular-heading p {
+  margin: 0;
+  color: #84746b;
+  font-size: 13px;
+}
+.boutique-home .popular-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.boutique-home .popular-nav {
+  width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid #e4d8d0;
+  border-radius: 50%;
+  background: #fff;
+  color: #67493b;
+  font-size: 26px;
+}
+.boutique-home .popular-nav:hover:not(:disabled) {
+  background: #f8efe9;
+}
+.boutique-home .popular-view-all {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #a6654e;
+  font-size: 13px;
+}
+.boutique-home .popular-view-all:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+.boutique-home .popular-product-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 2px 18px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: #d7c1b6 transparent;
+}
+.boutique-home .popular-product-item {
+  flex: 0 0 calc((100% - 48px) / 4);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.boutique-home .popular-product-item .luxury-card {
+  height: 100%;
+  transition: transform 300ms ease, box-shadow 300ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .boutique-home .popular-product-item .luxury-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 32px rgba(50, 30, 20, .10);
+  }
+}
+@media (max-width: 900px) {
+  .boutique-home .popular-product-item { flex-basis: calc((100% - 32px) / 3); }
+}
+@media (max-width: 700px) {
+  .boutique-home .boutique-popular { margin-block: 30px 36px; }
+  .boutique-home .popular-heading { flex-wrap: wrap; gap: 12px; }
+  .boutique-home .popular-product-item { flex-basis: calc((100% - 12px) / 2); }
+  .boutique-home .popular-product-track { gap: 12px; }
+}
+@media (max-width: 400px) {
+  .boutique-home .popular-product-item { flex-basis: 78%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boutique-home .popular-product-item .luxury-card { transition: none; }
+  .boutique-home .popular-product-item .luxury-card:hover { transform: none; }
+}
+
+
+/* Banner call-to-action placement: big=center-bottom, small=right-bottom. */
+.boutique-home .boutique-main-banner .boutique-hero-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.boutique-home .boutique-main-banner .boutique-hero-copy .boutique-cta {
+  margin-top: auto;
+  align-self: center;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.boutique-home .boutique-small-banner > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.boutique-home .boutique-small-banner .boutique-cta {
+  position: absolute;
+  inset-inline-start: 24px;
+  inset-inline-end: auto;
+  bottom: 22px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .boutique-home .boutique-small-banner .boutique-cta {
+    inset-inline-start: 12px;
+    bottom: 14px;
+    font-size: 12px;
+  }
+  .boutique-home .boutique-main-banner .boutique-hero-copy {
+    padding-bottom: 26px;
+  }
+}
+/* واضح نگه داشتن تصویر بنر بزرگ */
+
+.boutique-home .boutique-main-banner > img {
+  filter: none !important;
+  opacity: 1 !important;
+  image-rendering: auto;
+  transform: scale(1);
+  transition: transform 0.6s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boutique-home .boutique-main-banner:hover > img {
+    filter: none !important;
+    transform: scale(1.025);
+  }
+}
+
+/* جلوگیری از تار شدن ناشی از افکت روی بنر */
+.boutique-home .boutique-main-banner {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* FINAL FIX: full-height overlay previously washed out the large banner.
+   Let the photograph retain its original color and contrast. */
+.boutique-home .boutique-main-banner .boutique-hero-copy {
+  background: transparent;
+}
+
+/* Banner CTAs stay anchored at the bottom without covering the artwork. */
+.boutique-home .boutique-main-banner .boutique-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.boutique-home .boutique-main-banner .boutique-hero-copy .boutique-cta {
+  margin-top: auto;
+  align-self: center;
+  margin-bottom: 0;
+}
+.boutique-home .boutique-small-banner .boutique-cta {
+  position: absolute;
+  right: 24px;
+  left: auto;
+  bottom: 22px;
+  margin: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .boutique-home .boutique-small-banner .boutique-cta {
+    right: 12px;
+    bottom: 14px;
+  }
+}
+
+/* A visible diagnostics notice only appears when the popular API fails. */
+.boutique-home .popular-load-error {
+  width: min(100%, 1200px);
+  margin: 20px auto;
+  padding: 12px 16px;
+  border: 1px solid #e9bcbc;
+  border-radius: 9px;
+  color: #9b2020;
+  background: #fff7f7;
+  font-size: 13px;
+}
+.boutique-home .popular-load-error button {
+  margin-inline-start: 14px;
+  min-height: 34px;
+  padding: 5px 12px;
+}

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, money, imageUrl } from "../lib/api";
 import { useCart } from "../components/cart-context";
@@ -20,6 +21,11 @@ const emptyFilters = {
 
 export default function Products() {
   const [products, setProducts] = useState([]);
+  const [catalogAll, setCatalogAll] = useState(false);
+  const [popularProducts, setPopularProducts] = useState([]);
+  const [popularError, setPopularError] = useState("");
+  const [popularRetry, setPopularRetry] = useState(0);
+  const popularTrackRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -57,6 +63,7 @@ export default function Products() {
       });
 
       setPage(1);
+      setCatalogAll(true);
       setNotice("");
 
       document.getElementById("catalog")?.scrollIntoView({
@@ -69,6 +76,7 @@ export default function Products() {
     ).get("category");
 
     if (slug) {
+      setCatalogAll(true);
       setCategory({
         slug,
         title: "محصولات دسته‌بندی",
@@ -110,6 +118,39 @@ export default function Products() {
     };
   }, [categoryRetry]);
 
+  // Popular products are chosen manually in Django Admin, independently
+  // from catalog filters, pagination, search, and product ordering.
+  useEffect(() => {
+    let active = true;
+    setPopularError("");
+
+    api("products/?homepage_popular=true")
+      .then((data) => {
+        if (!active) return;
+
+        setPopularProducts(
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.results)
+              ? data.results
+              : []
+        );
+      })
+      .catch((err) => {
+        if (!active) return;
+
+        setPopularProducts([]);
+        setPopularError(
+          err?.message ||
+          "خطا در دریافت محبوب‌ترین‌ها از سرور محلی"
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [popularRetry]);
+
   useEffect(() => {
     let active = true;
 
@@ -149,6 +190,13 @@ export default function Products() {
       params.set("category", category.slug);
     }
 
+    // صفحه اصلی فقط محصولات منتخب ادمین را نشان می‌دهد.
+    // پس از جستجو، انتخاب دسته‌بندی یا کلیک روی «همه محصولات»،
+    // فهرست کامل محصولات قابل جستجو است.
+    if (!catalogAll && !category.slug) {
+      params.set("homepage_featured", "true");
+    }
+
     api(`products/?${params.toString()}`)
       .then((data) => {
         if (!active) return;
@@ -173,7 +221,7 @@ export default function Products() {
     return () => {
       active = false;
     };
-  }, [filters, page, category.slug, productRetry]);
+  }, [filters, page, category.slug, productRetry, catalogAll]);
 
   function updateCategory(item) {
     const slug = item.slug || "";
@@ -184,6 +232,7 @@ export default function Products() {
     });
 
     setPage(1);
+    setCatalogAll(true);
     setNotice("");
 
     const url = new URL(window.location.href);
@@ -234,6 +283,7 @@ export default function Products() {
     }));
 
     setPage(1);
+    setCatalogAll(true);
     setNotice("");
   }
 
@@ -245,13 +295,16 @@ export default function Products() {
       form.max_price !== "" &&
       Number(form.min_price) > Number(form.max_price)
     ) {
-      setError("حداقل قیمت نباید از حداکثر قیمت بیشتر باشد.");
+      setError(
+        "حداقل قیمت نباید از حداکثر قیمت بیشتر باشد."
+      );
       return;
     }
 
     setError("");
     setNotice("");
     setPage(1);
+    setCatalogAll(true);
 
     setFilters({
       ...form,
@@ -274,6 +327,7 @@ export default function Products() {
     });
 
     reset();
+    setCatalogAll(true);
   }
 
   async function addProduct(product, variantId, quantity) {
@@ -309,7 +363,9 @@ export default function Products() {
 
           <button
             type="button"
-            onClick={() => setCategoryRetry((value) => value + 1)}
+            onClick={() =>
+              setCategoryRetry((value) => value + 1)
+            }
           >
             تلاش دوباره
           </button>
@@ -351,36 +407,118 @@ export default function Products() {
         </section>
       )}
 
-      <section
-        className="handmade-story"
-        aria-labelledby="handmade-title"
-      >
-        <div className="handmade-story-content">
-          <span className="handmade-story-label">
-            چرم طبیعی، دوخت دستی
+      {popularError && (
+        <div
+          className="popular-load-error"
+          role="alert"
+        >
+          <span>
+            محبوب‌ترین‌ها بارگذاری نشد: {popularError}
           </span>
 
-          <h2 id="handmade-title">
-            با دست دوخته شده
-          </h2>
-
-          <p>
-            هر محصول حاصل زمان، دقت و علاقه به چرم طبیعی است.
-            از انتخاب چرم تا آخرین دوخت ، جزئیات را با دست
-            می‌سازیم تا همراهی زیبا و ماندگار برای روزهای شما باشد.
-          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setPopularRetry((value) => value + 1)
+            }
+          >
+            تلاش دوباره
+          </button>
         </div>
+      )}
 
-        <div className="handmade-story-photo">
-          <img
-            src="/images/home/handmade.png"
-            alt="دوخت دستی محصول چرمی با نخ و سوزن"
-            loading="lazy"
-            width="900"
-            height="600"
-          />
-        </div>
-      </section>
+      {/* Only admin-selected products appear here. */}
+      {popularProducts.length > 0 && (
+        <section
+          className="boutique-popular"
+          aria-labelledby="popular-title"
+        >
+          <div className="popular-heading">
+            <div>
+              <span className="popular-eyebrow">
+                انتخابی برای سلیقه شما
+              </span>
+
+              <h2 id="popular-title">
+                محبوب ترین ها
+              </h2>
+
+              <p>
+                نگاهی به مجموعه‌ای از محصولات منتخب
+              </p>
+            </div>
+
+            <div className="popular-heading-actions">
+              <button
+                type="button"
+                className="popular-nav"
+                aria-label="محصولات قبلی"
+                onClick={() =>
+                  popularTrackRef.current?.scrollBy({
+                    left: 340,
+                    behavior: "smooth",
+                  })
+                }
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                className="popular-nav"
+                aria-label="محصولات بعدی"
+                onClick={() =>
+                  popularTrackRef.current?.scrollBy({
+                    left: -340,
+                    behavior: "smooth",
+                  })
+                }
+              >
+                ›
+              </button>
+
+              <button
+                type="button"
+                className="popular-view-all"
+                onClick={() =>
+                  document
+                    .getElementById("catalog")
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                    })
+                }
+              >
+                مشاهده همه ←
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="popular-product-track"
+            ref={popularTrackRef}
+          >
+            {popularProducts.map((product) => (
+              <div
+                className="popular-product-item"
+                key={product.id}
+              >
+                <ProductCard
+                  product={product}
+                  cart={cart}
+                  busy={busy}
+                  onAdd={(variantId, quantity) =>
+                    addProduct(
+                      product,
+                      variantId,
+                      quantity
+                    )
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section
         id="catalog"
@@ -389,7 +527,11 @@ export default function Products() {
       >
         <div className="boutique-section-title">
           <h2 id="catalog-title">
-            {category.slug ? category.title : "محصولات منتخب"}
+            {category.slug
+              ? category.title
+              : catalogAll
+                ? "همه محصولات"
+                : "محصولات منتخب"}
           </h2>
 
           <span aria-hidden="true" />
@@ -424,7 +566,11 @@ export default function Products() {
                   strokeLinecap="round"
                   aria-hidden="true"
                 >
-                  <circle cx="10.5" cy="10.5" r="7" />
+                  <circle
+                    cx="10.5"
+                    cy="10.5"
+                    r="7"
+                  />
                   <path d="m16 16 4.5 4.5" />
                 </svg>
               </button>
@@ -453,20 +599,27 @@ export default function Products() {
 
                   updateCategory({
                     slug,
-                    title: item?.name || "همهٔ محصولات",
+                    title:
+                      item?.name || "همهٔ محصولات",
                   });
                 }}
               >
-                <option value="">دسته‌بندی: همه</option>
+                <option value="">
+                  دسته‌بندی:
+                </option>
 
-                {category.slug && !selectedCategoryInList && (
-                  <option value={category.slug}>
-                    {category.title}
-                  </option>
-                )}
+                {category.slug &&
+                  !selectedCategoryInList && (
+                    <option value={category.slug}>
+                      {category.title}
+                    </option>
+                  )}
 
                 {featuredCategories.map((item) => (
-                  <option key={item.id} value={item.slug}>
+                  <option
+                    key={item.id}
+                    value={item.slug}
+                  >
                     {item.name}
                   </option>
                 ))}
@@ -478,10 +631,13 @@ export default function Products() {
                 value={form.color}
                 onChange={changeQuickFilter}
               >
-                <option value="">رنگ: همه</option>
+                <option value="">رنگ:</option>
 
                 {options.colors.map((color) => (
-                  <option key={color} value={color}>
+                  <option
+                    key={color}
+                    value={color}
+                  >
                     {color}
                   </option>
                 ))}
@@ -493,10 +649,18 @@ export default function Products() {
                 value={form.ordering}
                 onChange={changeQuickFilter}
               >
-                <option value="-created_at">جدیدترین</option>
-                <option value="created_at">قدیمی‌ترین</option>
-                <option value="price">ارزان‌ترین</option>
-                <option value="-price">گران‌ترین</option>
+                <option value="-created_at">
+                  جدیدترین
+                </option>
+                <option value="created_at">
+                  قدیمی‌ترین
+                </option>
+                <option value="price">
+                  ارزان‌ترین
+                </option>
+                <option value="-price">
+                  گران‌ترین
+                </option>
               </select>
             </div>
           </div>
@@ -513,13 +677,20 @@ export default function Products() {
                   value={form.material}
                   onChange={change}
                 >
-                  <option value="">همهٔ جنس‌ها</option>
+                  <option value="">
+                    همهٔ جنس‌ها
+                  </option>
 
-                  {options.materials.map((material) => (
-                    <option key={material} value={material}>
-                      {material}
-                    </option>
-                  ))}
+                  {options.materials.map(
+                    (material) => (
+                      <option
+                        key={material}
+                        value={material}
+                      >
+                        {material}
+                      </option>
+                    )
+                  )}
                 </select>
               </label>
 
@@ -582,10 +753,14 @@ export default function Products() {
 
         {(category.slug || hasActiveFilters) && (
           <div className="catalog-active-filters">
-            {category.slug && <span>{category.title}</span>}
+            {category.slug && (
+              <span>{category.title}</span>
+            )}
 
             {filters.search && (
-              <span>جستجو: {filters.search}</span>
+              <span>
+                جستجو: {filters.search}
+              </span>
             )}
 
             <button
@@ -598,15 +773,26 @@ export default function Products() {
         )}
 
         <div aria-live="polite">
-          {notice && <p className="success">{notice}</p>}
+          {notice && (
+            <p className="success">
+              {notice}
+            </p>
+          )}
 
           {error && (
-            <div className="error" role="alert">
+            <div
+              className="error"
+              role="alert"
+            >
               <p>{error}</p>
 
               <button
                 type="button"
-                onClick={() => setProductRetry((value) => value + 1)}
+                onClick={() =>
+                  setProductRetry(
+                    (value) => value + 1
+                  )
+                }
               >
                 تلاش دوباره
               </button>
@@ -615,27 +801,50 @@ export default function Products() {
         </div>
 
         {loading ? (
-          <p role="status">در حال دریافت محصولات…</p>
+          <p role="status">
+            در حال دریافت محصولات…
+          </p>
         ) : (
           <>
             <div className="grid compact-products luxury-products">
-              {products.map((product) => (
+              {(catalogAll
+                ? products
+                : products.slice(0, 8)
+              ).map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   cart={cart}
                   busy={busy}
                   onAdd={(variantId, quantity) =>
-                    addProduct(product, variantId, quantity)
+                    addProduct(
+                      product,
+                      variantId,
+                      quantity
+                    )
                   }
                 />
               ))}
             </div>
 
             {!products.length && !error && (
-              <p className="empty">
-                محصولی با این مشخصات پیدا نشد.
-              </p>
+              <div className="empty">
+                <p>
+                  {catalogAll || category.slug
+                    ? "محصولی با این مشخصات پیدا نشد."
+                    : "هنوز محصولی برای بخش محصولات منتخب انتخاب نشده است."}
+                </p>
+
+                {!catalogAll &&
+                  !category.slug && (
+                    <button
+                      type="button"
+                      onClick={showAllProducts}
+                    >
+                      مشاهده همه محصولات
+                    </button>
+                  )}
+              </div>
             )}
 
             {(hasNext || page > 1) && (
@@ -643,17 +852,27 @@ export default function Products() {
                 <button
                   type="button"
                   disabled={page === 1}
-                  onClick={() => setPage((value) => value - 1)}
+                  onClick={() =>
+                    setPage(
+                      (value) => value - 1
+                    )
+                  }
                 >
                   صفحهٔ قبل
                 </button>
 
-                <span>صفحهٔ {money(page)}</span>
+                <span>
+                  صفحهٔ {money(page)}
+                </span>
 
                 <button
                   type="button"
                   disabled={!hasNext}
-                  onClick={() => setPage((value) => value + 1)}
+                  onClick={() =>
+                    setPage(
+                      (value) => value + 1
+                    )
+                  }
                 >
                   صفحهٔ بعد
                 </button>
